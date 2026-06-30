@@ -44,6 +44,7 @@
         <div class="counter">Card <span id="card-num">1</span> / <span id="card-total">8</span></div>
         <div id="current-card" class="card big"></div>
         <p class="hint">Click an empty slot to place this spell. There's no undo.</p>
+        <button id="glossary-btn" class="link-btn">📖 Spell Glossary</button>
       </div>
       <div class="grid-wrap">
         <h3 class="section-label">Your Build</h3>
@@ -75,6 +76,17 @@
         <button id="menu-btn">Change Season</button>
       </div>
     </section>
+
+    <!-- SPELL GLOSSARY -->
+    <div id="glossary-overlay" class="overlay hidden">
+      <div class="glossary-panel">
+        <div class="glossary-head">
+          <h3>Spell Glossary</h3>
+          <button id="glossary-close" class="icon-btn">✕</button>
+        </div>
+        <div id="glossary-list" class="glossary-list"></div>
+      </div>
+    </div>
   </div>
 
   <script type="module" src="js/game.js"></script>

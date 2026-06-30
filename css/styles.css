@@ -92,6 +92,25 @@ header h1 {
 
 .hint { color: var(--muted); text-align: center; font-size: 0.85rem; margin-top: 10px; }
 
+.link-btn {
+  display: block;
+  margin: 12px auto 0;
+  background: none;
+  border: none;
+  box-shadow: none;
+  color: var(--gold);
+  font-size: 0.8rem;
+  letter-spacing: 0.5px;
+  padding: 4px 8px;
+  text-decoration: underline;
+  text-decoration-color: rgba(212, 175, 92, 0.4);
+  text-underline-offset: 3px;
+}
+.link-btn:hover {
+  color: var(--border-bright);
+  transform: none;
+}
+
 /* ---- buttons ---- */
 button {
   font: inherit;
@@ -382,3 +401,74 @@ button.primary:hover {
   #season-list { grid-template-columns: 1fr; }
   .compare { grid-template-columns: 1fr; }
 }
+
+/* ---- spell glossary ---- */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 8, 5, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+  z-index: 50;
+}
+
+.glossary-panel {
+  width: 100%;
+  max-width: 640px;
+  max-height: 84vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(160deg, var(--panel-2) 0%, var(--panel) 100%);
+  border: 1px solid var(--border);
+  box-shadow:
+    inset 0 0 0 1px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(212, 175, 92, 0.12),
+    0 0 40px rgba(0, 0, 0, 0.5);
+  border-radius: 10px;
+}
+
+.glossary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.glossary-head h3 {
+  margin: 0;
+  font-family: 'Cinzel', serif;
+  color: var(--gold);
+  font-size: 1.1rem;
+  letter-spacing: 1px;
+}
+.icon-btn {
+  padding: 4px 10px;
+  line-height: 1;
+  font-size: 0.9rem;
+}
+
+.glossary-list { overflow-y: auto; padding: 8px 18px 18px; }
+
+.glossary-type-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 16px 0 8px;
+}
+.glossary-type-label:first-child { margin-top: 8px; }
+
+.glossary-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 0;
+  border-bottom: 1px solid rgba(139, 111, 61, 0.18);
+}
+.glossary-item:last-child { border-bottom: none; }
+.glossary-item .card-icon { font-size: 1.6rem; flex-shrink: 0; width: 1.6rem; text-align: center; }
+.glossary-item .glossary-body { flex: 1; }
+.glossary-item .card-name { margin-top: 0; }
+.glossary-item .card-desc { margin-top: 4px; }

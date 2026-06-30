@@ -99,6 +99,31 @@ function renderDraft() {
   renderPlayerGrid();
 }
 
+// Matches the type ordering already used for accent colors / BASE_SPELLS.
+const TYPE_ORDER = ['damage', 'heal', 'shield', 'burn', 'drain', 'control'];
+
+function renderGlossary() {
+  const byType = {};
+  state.pool.forEach((s) => (byType[s.type] ||= []).push(s));
+  $('#glossary-list').innerHTML = TYPE_ORDER.filter((t) => byType[t])
+    .map((t) => {
+      const items = byType[t]
+        .map(
+          (s) => `
+        <div class="glossary-item">
+          <div class="card-icon">${s.icon}</div>
+          <div class="glossary-body">
+            <div class="card-name">${s.name}</div>
+            <div class="card-desc">${s.desc}</div>
+          </div>
+        </div>`
+        )
+        .join('');
+      return `<div class="glossary-type-label type-${t}">${t}</div>${items}`;
+    })
+    .join('');
+}
+
 function renderPlayerGrid() {
   const grid = $('#player-grid');
   grid.innerHTML = '';
@@ -228,6 +253,17 @@ function buildGridHTML(build) {
 $('#start-btn').onclick = () => startMatch(true);
 $('#rematch-btn').onclick = () => startMatch(true);
 $('#menu-btn').onclick = () => show('menu');
+$('#glossary-btn').onclick = () => {
+  renderGlossary();
+  $('#glossary-overlay').classList.remove('hidden');
+};
+$('#glossary-close').onclick = () => $('#glossary-overlay').classList.add('hidden');
+$('#glossary-overlay').onclick = (e) => {
+  if (e.target.id === 'glossary-overlay') $('#glossary-overlay').classList.add('hidden');
+};
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') $('#glossary-overlay').classList.add('hidden');
+});
 renderSeasons();
 renderBots();
 show('menu');
