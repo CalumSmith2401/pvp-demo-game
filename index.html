@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spell Draft Duel</title>
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1>Spell Draft Duel</h1>
+    </header>
+
+    <!-- MENU -->
+    <section id="menu" class="screen">
+      <p class="tag">
+        You and your foe are dealt the <em>same</em> 8 spells, in the same order — one at a time.
+        Only your placement differs. Draft well; placement is forever.
+      </p>
+      <h3 class="section-label">Choose a season</h3>
+      <div id="season-list"></div>
+      <button id="start-btn" class="primary">Begin Duel</button>
+      <details class="howto">
+        <summary>How to play</summary>
+        <ul>
+          <li>Each card you receive must be placed into one of your 8 empty slots — permanently.</li>
+          <li>Your opponent (the AI) drafts the identical card sequence into its own hidden build.</li>
+          <li>Slot order is turn order: slot 1 fires first, slot 8 last.</li>
+          <li>Combat alternates — your slot, then theirs — until someone hits 0 HP or all slots resolve.</li>
+          <li>Burns tick at the start of a turn; shields soak the next hits; heals cap at 60.</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- DRAFT -->
+    <section id="draft" class="screen hidden">
+      <div class="draft-top">
+        <div class="counter">Card <span id="card-num">1</span> / <span id="card-total">8</span></div>
+        <div id="current-card" class="card big"></div>
+        <p class="hint">Click an empty slot to place this spell. There's no undo.</p>
+      </div>
+      <div class="grid-wrap">
+        <h3 class="section-label">Your Build</h3>
+        <div id="player-grid" class="grid"></div>
+      </div>
+    </section>
+
+    <!-- LOCK -->
+    <section id="lock" class="screen hidden">
+      <div class="lock-msg">⚔️ Builds Locked ⚔️<br /><small>Combat begins…</small></div>
+    </section>
+
+    <!-- COMBAT -->
+    <section id="combat" class="screen hidden">
+      <canvas id="arena" width="720" height="380"></canvas>
+      <div class="controls">
+        <button id="step-btn" class="primary">Next ▶</button>
+        <button id="auto-btn">Auto-play</button>
+      </div>
+      <div id="combat-log" class="log"></div>
+    </section>
+
+    <!-- END -->
+    <section id="end" class="screen hidden">
+      <div id="result" class="result"></div>
+      <div id="builds-compare" class="compare"></div>
+      <div class="controls">
+        <button id="rematch-btn" class="primary">Rematch</button>
+        <button id="menu-btn">Change Season</button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>

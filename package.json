@@ -1,0 +1,11 @@
+{
+  "name": "spell-draft-duel",
+  "version": "1.0.0",
+  "description": "A single-player-vs-AI spell drafting duel. Shared card sequence, irrevocable placement, turn-based combat.",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node test/combat.test.js"
+  },
+  "license": "MIT"
+}
