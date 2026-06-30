@@ -5,8 +5,8 @@ Guidance for working in this repo.
 ## What this is
 
 **Spell Draft Duel** — a single-player-vs-AI draft-and-combat game. You and a
-heuristic AI are dealt the *same* sequence of 8 spells one card at a time, and each
-privately places every card into an irrevocable 8-slot build. Builds then lock and
+heuristic AI are dealt the *same* sequence of 12 spells one card at a time, and each
+privately places every card into an irrevocable 12-slot build. Builds then lock and
 resolve in turn-based combat, animated on a 2D canvas. Because both sides see
 identical cards, the only edge is *placement*.
 
@@ -74,6 +74,37 @@ test/combat.test.js
   If you touch any of this, the tests encode the expected behavior — keep them green.
 - **Slot index = turn order** (slot 1 fires first). The AI's `idealPos()` maps spell
   types to preferred slots with this in mind.
+
+## Visual theme
+
+A WOW-inspired dark fantasy theme, not a generic mobile-game look. Keep new UI
+consistent with these rules:
+
+- **Palette lives in `:root` in `css/styles.css`.** Warm near-black surfaces
+  (`--bg`/`--panel`, never pure black), antique gold/bronze borders
+  (`--border`/`--border-bright`/`--gold`), and per-spell-type accents
+  (`--c-damage`/`--c-heal`/`--c-shield`/`--c-burn`/`--c-drain`/`--c-control`).
+  `js/arena.js`'s `SPELL_COLORS` map must stay in sync with these accents since
+  canvas can't read CSS vars.
+- **Double-border "socketed metal" framing** on every interactive/panel element
+  (buttons, `.season`, `.bot`, `.card.big`, `.slot`, `.log`, `#arena`): an outer
+  1px `border` plus an inset `box-shadow` pair (dark inset line + faint highlight
+  line), not a single flat border. Corners are boxy, not pill-shaped.
+- **Cinzel (serif, loaded in `index.html` via Google Fonts)** is reserved for
+  titles, names, and short display text — `header h1`, `.section-label`,
+  `.card-name`, `.result-title`, `.lock-msg`, bot/season names — and for the
+  canvas HP names/numbers and damage floaters in `arena.js`. Everything else
+  (descriptions, log lines, body text) stays sans-serif.
+- **Slot glow encodes spell type:** empty slots get a neutral gold vignette;
+  filled slots get a border/box-shadow glow tinted to `type-${spell.type}`
+  (`game.js` sets that class in `renderPlayerGrid()` and `buildGridHTML()` —
+  any new slot-rendering code path must do the same or the glow won't apply).
+- **Gold full-screen flash is reserved for the lethal/killing blow only**
+  (`arena.js` `this.flashColor`/`this.flash`, set to gold only when
+  `hpA <= 0 || hpB <= 0`); non-lethal hits flash white. Don't reuse gold flash
+  for routine hits.
+- Avoid: pure black, pastel colors, single flat borders, rounded "pill" cards,
+  and overusing the gold flash outside the killing blow.
 
 ## Gotchas
 
