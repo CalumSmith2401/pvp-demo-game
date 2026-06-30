@@ -65,12 +65,17 @@ button:hover { border-color: var(--accent); transform: translateY(-1px); }
 button.primary { background: linear-gradient(90deg, var(--accent), #8a5cff); border: none; font-weight: bold; }
 .controls { display: flex; gap: 12px; justify-content: center; margin-top: 22px; }
 
-/* season picker */
-#season-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
-.season { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px; }
-.season strong { color: var(--gold); }
-.season span { color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
-.season.selected { border-color: var(--accent); background: var(--panel-2); box-shadow: 0 0 0 1px var(--accent) inset; }
+/* season + bot pickers */
+#season-list, #bot-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 22px; }
+.season, .bot { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 14px; }
+.season strong, .bot strong { color: var(--gold); }
+.season span, .bot span { color: var(--muted); font-size: 0.82rem; line-height: 1.35; }
+.season.selected, .bot.selected { border-color: var(--accent); background: var(--panel-2); box-shadow: 0 0 0 1px var(--accent) inset; }
+
+.bot-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.tier { display: inline-flex; gap: 3px; }
+.pip { width: 7px; height: 7px; border-radius: 50%; background: rgba(255, 255, 255, 0.12); }
+.pip.on { background: var(--accent); box-shadow: 0 0 5px var(--accent); }
 #start-btn { display: block; width: 100%; }
 
 .howto { margin-top: 22px; color: var(--muted); }
@@ -89,6 +94,7 @@ button.primary { background: linear-gradient(90deg, var(--accent), #8a5cff); bor
 .type-shield { color: var(--shield); }
 .type-burn { color: #ff7a5c; }
 .type-drain { color: #d98cff; }
+.type-control { color: #ffd479; }
 
 /* draft */
 .draft-top { text-align: center; }
@@ -174,7 +180,7 @@ button.primary { background: linear-gradient(90deg, var(--accent), #8a5cff); bor
 
 .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .compare-col h4 { text-align: center; color: var(--muted); font-weight: normal; margin: 0 0 8px; }
-.compare-col .grid.small { grid-template-columns: repeat(2, 1fr); }
+.compare-col .grid.small { grid-template-columns: repeat(3, 1fr); }
 
 @media (max-width: 560px) {
   .grid { grid-template-columns: repeat(2, 1fr); }

@@ -15,6 +15,9 @@ const SPELL_COLORS = {
   fireball: '#ff8a2f', meteor: '#ff5326', frostbolt: '#5fd0ff', lightning: '#ffe066',
   drain: '#c779ff', soulsiphon: '#b15bff', embergrasp: '#ff5c3c', plague: '#9fd84a',
   heal: '#4ade80', bolster: '#86f7b0', shield: '#5fd0ff', wardstone: '#74b4ff',
+  chainlightning: '#a98cff', execute: '#ff3b5c', reflectward: '#7fe0ff', manabarrier: '#9d7bff',
+  corrosion: '#a6e052', vampiric: '#e15c9a', bloodpact: '#ff4d6d',
+  silence: '#b9a9d6', haste: '#ffd479', mirror: '#cfe8ff',
 };
 
 export class Arena {
@@ -98,25 +101,29 @@ export class Arena {
     const c = this.casters;
     if (ev.move === 'self') {
       const self = c[ev.actor];
+      const col = this._color(ev);
       self.castGlow = 1;
       this._timer(() => {
         this._applyState(ev);
         const isShield = ev.shieldGain != null;
         if (ev.heal) this._floater(self, '+' + ev.heal, '#4ade80');
         if (isShield) this._floater(self, '+' + ev.shieldGain + ' ✦', '#5fd0ff');
-        this._burst(self.x, GROUND - 44, isShield ? '#5fd0ff' : '#4ade80', 16, true);
+        if (ev.note) this._floater(self, ev.note, col);
+        this._burst(self.x, GROUND - 44, isShield ? '#5fd0ff' : col, 16, true);
       }, 170);
       this._timer(done, 540);
       return;
     }
 
     if (ev.move === 'tick') {
+      // burn ticks, reflected damage, and recoil all land as instant self-damage
       const self = c[ev.actor];
-      self.burnAura = 1;
+      const col = ev.kind === 'reflect' ? '#7fe0ff' : ev.kind === 'recoil' ? '#ff5d5d' : '#ff5c3c';
+      if (ev.kind === 'burn') self.burnAura = 1;
       this._timer(() => {
         this._applyState(ev);
-        this._floater(self, '-' + ev.amount, '#ff8a3c');
-        this._burst(self.x, GROUND - 46, '#ff5c3c', 20, false);
+        this._floater(self, '-' + ev.amount, col);
+        this._burst(self.x, GROUND - 46, col, 18, false);
         this.shake = Math.min(11, 3 + ev.amount * 0.5);
         self.hit = 1;
       }, 130);
@@ -142,12 +149,13 @@ export class Arena {
       if (ev.absorbed) this._floater(target, ev.absorbed + ' blocked', '#5fd0ff', -18);
       if (ev.heal) this._floater(caster, '+' + ev.heal, '#4ade80', 18);
       if (ev.sub === 'cast') { target.burnAura = 1; this._floater(target, '\u{1f525}', '#ff5c3c', 20); }
-      this.shake = Math.min(17, 4 + dmg * 0.55);
-      this.flash = 0.45;
-      this._burst(toX, toY, color, 20 + dmg, false);
+      if (ev.note) this._floater(target, ev.note, color); // Silence and other debuffs
+      this.shake = Math.min(17, ev.note ? 4 : 4 + dmg * 0.55);
+      this.flash = ev.note ? 0.2 : 0.45;
+      this._burst(toX, toY, color, 18 + dmg, false);
       target.offset = -11 * caster.facing;
       target.hit = 1;
-      if (ev.type === 'drain' || ev.heal) this._tether(toX, toY, fromX, fromY, '#c779ff');
+      if (ev.heal) this._tether(toX, toY, fromX, fromY, '#c779ff'); // drain life-steal
       this._timer(done, 230);
     };
 

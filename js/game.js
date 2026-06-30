@@ -1,17 +1,21 @@
 import { mulberry32 } from './rng.js';
 import { buildPool, makeSequence, SEASONS } from './spells.js';
 import { resolveCombat, START_HP } from './combat.js';
-import { chooseSlot } from './ai.js';
+import { BOTS, getBot } from './ai.js';
 import { Arena } from './arena.js';
 
 let arena = null;
 
-const SLOTS = 8;
-const SEQ_LEN = 8;
+const SLOTS = 12;
+const SEQ_LEN = 12;
 
 const state = {
   seasonId: 'classic',
+  botId: 'adept',
   seed: 0,
+  pool: [],
+  bot: null,
+  botRand: null,
   sequence: [],
   cardIndex: 0,
   playerBuild: Array(SLOTS).fill(null),
@@ -52,11 +56,32 @@ function renderSeasons() {
   });
 }
 
+function renderBots() {
+  const list = $('#bot-list');
+  list.innerHTML = '';
+  BOTS.forEach((bot) => {
+    const btn = document.createElement('button');
+    btn.className = 'bot' + (bot.id === state.botId ? ' selected' : '');
+    const pips = Array.from({ length: 5 }, (_, i) =>
+      `<span class="pip${i < bot.tier ? ' on' : ''}"></span>`).join('');
+    btn.innerHTML =
+      `<div class="bot-head"><strong>${bot.name}</strong><span class="tier">${pips}</span></div>` +
+      `<span>${bot.blurb}</span>`;
+    btn.onclick = () => {
+      state.botId = bot.id;
+      renderBots();
+    };
+    list.appendChild(btn);
+  });
+}
+
 function startMatch(newSeed = true) {
   if (newSeed) state.seed = (Math.random() * 1e9) | 0;
   const rand = mulberry32(state.seed);
-  const pool = buildPool(state.seasonId);
-  state.sequence = makeSequence(pool, SEQ_LEN, rand);
+  state.pool = buildPool(state.seasonId);
+  state.bot = getBot(state.botId);
+  state.botRand = mulberry32((state.seed ^ 0x9e3779b9) >>> 0);
+  state.sequence = makeSequence(state.pool, SEQ_LEN, rand);
   state.cardIndex = 0;
   state.playerBuild = Array(SLOTS).fill(null);
   state.aiBuild = Array(SLOTS).fill(null);
@@ -93,8 +118,14 @@ function renderPlayerGrid() {
 function placeCard(slotIndex) {
   const card = state.sequence[state.cardIndex];
   state.playerBuild[slotIndex] = card;
-  // The AI drafts the very same card into its own hidden build, no lookahead.
-  state.aiBuild[chooseSlot(card, state.aiBuild)] = card;
+  // The bot drafts the very same card into its own hidden build, no lookahead.
+  const ctx = {
+    pool: state.pool,
+    seen: state.sequence.slice(0, state.cardIndex + 1),
+    index: state.cardIndex,
+    rand: state.botRand,
+  };
+  state.aiBuild[state.bot.choose(card, state.aiBuild, ctx)] = card;
 
   state.cardIndex++;
   if (state.cardIndex >= SEQ_LEN) lockAndFight();
@@ -105,7 +136,7 @@ function placeCard(slotIndex) {
 function lockAndFight() {
   show('lock');
   setTimeout(() => {
-    state.combat = resolveCombat(state.playerBuild, state.aiBuild, { a: 'You', b: 'Opponent' });
+    state.combat = resolveCombat(state.playerBuild, state.aiBuild, { a: 'You', b: state.bot.name });
     startCombat();
   }, 1400);
 }
@@ -126,7 +157,7 @@ function startCombat() {
   state.autoOn = false;
   if (!arena) arena = new Arena($('#arena'));
   arena.onLog = appendLog;
-  arena.start(state.combat.events, { a: 'You', b: 'Opponent', maxHp: START_HP });
+  arena.start(state.combat.events, { a: 'You', b: state.bot.name, maxHp: START_HP });
   $('#step-btn').textContent = 'Next ▶';
   $('#step-btn').onclick = manualStep;
   $('#auto-btn').textContent = 'Auto-play';
@@ -176,11 +207,11 @@ function renderEnd() {
   const resultEl = $('#result');
   resultEl.className = 'result ' + cls;
   resultEl.innerHTML = `<div class="result-title">${title}</div>
-    <div class="result-sub">You ${Math.max(0, last.hpA)} HP · Opponent ${Math.max(0, last.hpB)} HP</div>`;
+    <div class="result-sub">You ${Math.max(0, last.hpA)} HP · ${state.bot.name} ${Math.max(0, last.hpB)} HP</div>`;
 
   $('#builds-compare').innerHTML = `
     <div class="compare-col"><h4>Your Build</h4>${buildGridHTML(state.playerBuild)}</div>
-    <div class="compare-col"><h4>Opponent Build</h4>${buildGridHTML(state.aiBuild)}</div>`;
+    <div class="compare-col"><h4>${state.bot.name}'s Build</h4>${buildGridHTML(state.aiBuild)}</div>`;
 }
 
 function buildGridHTML(build) {
@@ -198,4 +229,5 @@ $('#start-btn').onclick = () => startMatch(true);
 $('#rematch-btn').onclick = () => startMatch(true);
 $('#menu-btn').onclick = () => show('menu');
 renderSeasons();
+renderBots();
 show('menu');

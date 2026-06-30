@@ -15,20 +15,22 @@
     <!-- MENU -->
     <section id="menu" class="screen">
       <p class="tag">
-        You and your foe are dealt the <em>same</em> 8 spells, in the same order — one at a time.
+        You and your foe are dealt the <em>same</em> 12 spells, in the same order — one at a time.
         Only your placement differs. Draft well; placement is forever.
       </p>
+      <h3 class="section-label">Choose your opponent</h3>
+      <div id="bot-list"></div>
       <h3 class="section-label">Choose a season</h3>
       <div id="season-list"></div>
       <button id="start-btn" class="primary">Begin Duel</button>
       <details class="howto">
         <summary>How to play</summary>
         <ul>
-          <li>Each card you receive must be placed into one of your 8 empty slots — permanently.</li>
-          <li>Your opponent (the AI) drafts the identical card sequence into its own hidden build.</li>
-          <li>Slot order is turn order: slot 1 fires first, slot 8 last.</li>
+          <li>Each card you receive must be placed into one of your 12 empty slots — permanently.</li>
+          <li>Your chosen bot drafts the identical card sequence into its own hidden build.</li>
+          <li>Slot order is turn order: slot 1 fires first, slot 12 last.</li>
           <li>Combat alternates — your slot, then theirs — until someone hits 0 HP or all slots resolve.</li>
-          <li>Burns tick at the start of a turn; shields soak the next hits; heals cap at 60.</li>
+          <li>Burns tick at the start of a turn; shields soak the next hits; heals cap at 80.</li>
         </ul>
       </details>
     </section>
