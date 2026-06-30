@@ -12,12 +12,12 @@ const GROUND = 292;
 const BAR_Y = 150;
 
 const SPELL_COLORS = {
-  fireball: '#ff8a2f', meteor: '#ff5326', frostbolt: '#5fd0ff', lightning: '#ffe066',
-  drain: '#c779ff', soulsiphon: '#b15bff', embergrasp: '#ff5c3c', plague: '#9fd84a',
-  heal: '#4ade80', bolster: '#86f7b0', shield: '#5fd0ff', wardstone: '#74b4ff',
-  chainlightning: '#a98cff', execute: '#ff3b5c', reflectward: '#7fe0ff', manabarrier: '#9d7bff',
-  corrosion: '#a6e052', vampiric: '#e15c9a', bloodpact: '#ff4d6d',
-  silence: '#b9a9d6', haste: '#ffd479', mirror: '#cfe8ff',
+  fireball: '#E8541E', meteor: '#ff3d00', frostbolt: '#5aaed8', lightning: '#f0c030',
+  drain: '#7B2D8E', soulsiphon: '#9a3aaa', embergrasp: '#A8731E', plague: '#7a8a18',
+  heal: '#3C9D4F', bolster: '#4db85f', shield: '#3A7FB5', wardstone: '#4a90d0',
+  chainlightning: '#d4a020', execute: '#c03020', reflectward: '#60a8e0', manabarrier: '#5088c0',
+  corrosion: '#6a8818', vampiric: '#8a2888', bloodpact: '#b030a0',
+  silence: '#D4AF5C', haste: '#f0c040', mirror: '#e8d090',
 };
 
 export class Arena {
@@ -55,6 +55,7 @@ export class Arena {
     }));
     this.shake = 0;
     this.flash = 0;
+    this.flashColor = [255, 255, 255];
     this.casters = {
       a: this._mkCaster(150, opts.a, '#4ade80', 1, opts.maxHp),
       b: this._mkCaster(W - 150, opts.b, '#ff6b6b', -1, opts.maxHp),
@@ -92,8 +93,7 @@ export class Arena {
   _clearTimers() { (this.timers || []).forEach(clearTimeout); this.timers = []; }
 
   _color(ev) {
-    if (ev.move === 'tick') return '#ff5c3c';
-    return SPELL_COLORS[ev.spellId] || '#c9b6ff';
+    return SPELL_COLORS[ev.spellId] || '#D4AF5C';
   }
 
   // ---- event choreography ----
@@ -126,6 +126,8 @@ export class Arena {
         this._burst(self.x, GROUND - 46, col, 18, false);
         this.shake = Math.min(11, 3 + ev.amount * 0.5);
         self.hit = 1;
+        const isLethal = ev.state.hpA <= 0 || ev.state.hpB <= 0;
+        if (isLethal) { this.flashColor = [255, 215, 0]; this.flash = 0.85; }
       }, 130);
       this._timer(done, 500);
       return;
@@ -146,16 +148,18 @@ export class Arena {
       this._applyState(ev);
       const dmg = ev.dmg || 0;
       if (ev.dmg != null) this._floater(target, '-' + ev.dmg, '#ff5b5b');
-      if (ev.absorbed) this._floater(target, ev.absorbed + ' blocked', '#5fd0ff', -18);
-      if (ev.heal) this._floater(caster, '+' + ev.heal, '#4ade80', 18);
-      if (ev.sub === 'cast') { target.burnAura = 1; this._floater(target, '\u{1f525}', '#ff5c3c', 20); }
-      if (ev.note) this._floater(target, ev.note, color); // Silence and other debuffs
+      if (ev.absorbed) this._floater(target, ev.absorbed + ' blocked', '#3A7FB5', -18);
+      if (ev.heal) this._floater(caster, '+' + ev.heal, '#3C9D4F', 18);
+      if (ev.sub === 'cast') { target.burnAura = 1; this._floater(target, '\u{1f525}', '#A8731E', 20); }
+      if (ev.note) this._floater(target, ev.note, color);
+      const isLethal = ev.state.hpA <= 0 || ev.state.hpB <= 0;
+      this.flashColor = isLethal ? [255, 215, 0] : [255, 255, 255];
       this.shake = Math.min(17, ev.note ? 4 : 4 + dmg * 0.55);
-      this.flash = ev.note ? 0.2 : 0.45;
+      this.flash = isLethal ? 0.85 : (ev.note ? 0.2 : 0.45);
       this._burst(toX, toY, color, 18 + dmg, false);
       target.offset = -11 * caster.facing;
       target.hit = 1;
-      if (ev.heal) this._tether(toX, toY, fromX, fromY, '#c779ff'); // drain life-steal
+      if (ev.heal) this._tether(toX, toY, fromX, fromY, '#7B2D8E');
       this._timer(done, 230);
     };
 
@@ -258,7 +262,8 @@ export class Arena {
     for (const p of this.particles) this._particle(p);
     for (const f of this.floaters) this._floaterDraw(f);
     if (this.flash > 0) {
-      ctx.fillStyle = `rgba(255,255,255,${this.flash * 0.25})`;
+      const [fr, fg, fb] = this.flashColor || [255, 255, 255];
+      ctx.fillStyle = `rgba(${fr},${fg},${fb},${this.flash * 0.22})`;
       ctx.fillRect(-20, -20, W + 40, H + 40);
     }
     ctx.restore();
@@ -267,32 +272,32 @@ export class Arena {
   _bg(time) {
     const ctx = this.ctx;
     const g = ctx.createLinearGradient(0, 0, 0, H);
-    g.addColorStop(0, '#221a40');
-    g.addColorStop(0.55, '#160f2c');
-    g.addColorStop(1, '#0a0716');
+    g.addColorStop(0, '#1e1208');
+    g.addColorStop(0.55, '#130d04');
+    g.addColorStop(1, '#0d0803');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
-    // drifting runes
+    // drifting runes — amber/gold
     for (const r of this.runes) {
       const tw = 0.4 + 0.6 * (0.5 + 0.5 * Math.sin(time * 1.5 + r.p));
-      ctx.fillStyle = `rgba(176,123,255,${tw * 0.5})`;
+      ctx.fillStyle = `rgba(212,175,92,${tw * 0.4})`;
       ctx.beginPath();
       ctx.arc(r.x, r.y + Math.sin(time * 0.4 + r.p) * 4, r.r, 0, 6.28);
       ctx.fill();
     }
-    // ground
+    // ground — warm stone
     const gg = ctx.createLinearGradient(0, GROUND, 0, H);
-    gg.addColorStop(0, '#2a2150');
-    gg.addColorStop(1, '#120c24');
+    gg.addColorStop(0, '#241508');
+    gg.addColorStop(1, '#120b04');
     ctx.fillStyle = gg;
     ctx.fillRect(0, GROUND, W, H - GROUND);
-    ctx.strokeStyle = 'rgba(176,123,255,0.4)';
+    ctx.strokeStyle = 'rgba(139,111,61,0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(0, GROUND); ctx.lineTo(W, GROUND); ctx.stroke();
-    // summoning circles
+    // summoning circles — gold
     for (const k of ['a', 'b']) {
       const c = this.casters[k];
-      ctx.strokeStyle = 'rgba(176,123,255,0.18)';
+      ctx.strokeStyle = 'rgba(139,111,61,0.22)';
       ctx.beginPath();
       ctx.ellipse(c.x, GROUND + 6, 56, 12, 0, 0, 6.28);
       ctx.stroke();
@@ -318,8 +323,8 @@ export class Arena {
         const fx = x + (i - 2.5) * 12;
         const h = (18 + Math.sin(time * 9 + i) * 8) * c.burnAura;
         const g = ctx.createLinearGradient(fx, baseY, fx, baseY - h);
-        g.addColorStop(0, `rgba(255,120,40,${0.6 * c.burnAura})`);
-        g.addColorStop(1, 'rgba(255,60,30,0)');
+        g.addColorStop(0, `rgba(220,140,30,${0.65 * c.burnAura})`);
+        g.addColorStop(1, 'rgba(180,90,10,0)');
         ctx.fillStyle = g;
         ctx.beginPath();
         ctx.moveTo(fx - 5, baseY);
@@ -404,31 +409,36 @@ export class Arena {
   _hpBar(c) {
     const ctx = this.ctx;
     const w = 132, x = c.x - w / 2, y = BAR_Y;
-    // name + number
-    ctx.font = '600 12px "Trebuchet MS", sans-serif';
+    // name
+    ctx.font = '400 11px Cinzel, serif';
     ctx.textBaseline = 'alphabetic';
-    ctx.fillStyle = '#cfc6ea';
+    ctx.fillStyle = '#c8b890';
     ctx.textAlign = 'left';
     ctx.fillText(c.name, x, y - 6);
+    // HP number
+    ctx.font = '700 13px Cinzel, serif';
     ctx.textAlign = 'right';
-    ctx.fillStyle = '#fff';
+    ctx.fillStyle = '#E8DFC8';
     ctx.fillText(Math.round(c.dispHp), x + w, y - 6);
     // track
-    ctx.fillStyle = '#0a0716';
+    ctx.fillStyle = '#0d0804';
     this._roundRect(x, y, w, 11, 5); ctx.fill();
-    // fill
+    ctx.strokeStyle = 'rgba(139,111,61,0.5)';
+    ctx.lineWidth = 1;
+    this._roundRect(x, y, w, 11, 5); ctx.stroke();
+    // HP fill — deep red, flashes brighter on hit
     const fw = (w - 2) * Math.max(0, c.dispHp) / c.maxHp;
     if (fw > 0) {
-      ctx.fillStyle = c.color;
+      ctx.fillStyle = c.hit > 0.5 ? '#C73E3E' : '#8E1F1F';
       this._roundRect(x + 1, y + 1, fw, 9, 4); ctx.fill();
     }
-    // shield bar
+    // shield bar — steel blue
     if (c.dispShield > 0.4) {
       const sw = (w - 2) * Math.min(1, c.dispShield / c.maxHp);
-      ctx.fillStyle = 'rgba(95,208,255,0.85)';
+      ctx.fillStyle = 'rgba(58,127,181,0.88)';
       this._roundRect(x + 1, y - 4, sw, 3, 1.5); ctx.fill();
       ctx.textAlign = 'left';
-      ctx.fillStyle = '#7fdcff';
+      ctx.fillStyle = '#5a9fd4';
       ctx.font = '600 10px "Trebuchet MS", sans-serif';
       ctx.fillText('\u{1f6e1} ' + Math.round(c.dispShield), x, y + 24);
     }
@@ -484,7 +494,7 @@ export class Arena {
   _floaterDraw(f) {
     const ctx = this.ctx;
     ctx.globalAlpha = Math.min(1, f.life / f.max);
-    ctx.font = '700 18px "Trebuchet MS", sans-serif';
+    ctx.font = '700 20px Cinzel, serif';
     ctx.textAlign = 'center';
     ctx.lineWidth = 3;
     ctx.strokeStyle = 'rgba(0,0,0,0.6)';

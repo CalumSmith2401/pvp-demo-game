@@ -104,7 +104,7 @@ function renderPlayerGrid() {
   grid.innerHTML = '';
   state.playerBuild.forEach((spell, i) => {
     const slot = document.createElement('div');
-    slot.className = 'slot' + (spell ? ' filled' : ' empty');
+    slot.className = spell ? `slot filled type-${spell.type}` : 'slot empty';
     if (spell) {
       slot.innerHTML = `<div class="slot-num">${i + 1}</div>${cardHTML(spell, false)}`;
     } else {
@@ -218,7 +218,7 @@ function buildGridHTML(build) {
   return (
     '<div class="grid small">' +
     build
-      .map((s, i) => `<div class="slot filled"><div class="slot-num">${i + 1}</div>${cardHTML(s, false)}</div>`)
+      .map((s, i) => `<div class="slot filled type-${s.type}"><div class="slot-num">${i + 1}</div>${cardHTML(s, false)}</div>`)
       .join('') +
     '</div>'
   );
