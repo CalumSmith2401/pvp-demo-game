@@ -10,13 +10,16 @@
 import * as Phaser from 'phaser';
 
 // Must stay in sync with the palette in css/styles.css (WebGL can't read CSS vars).
+// felt = the table, line = printed linework, gold = you, rival = them.
 const C = {
-  felt: '#0F4F43', feltDeep: '#0A3A32', feltWell: '#082E28',
-  brass: '#C9A24A', brassBright: '#F2CF72',
-  ivory: '#F3EAD3', cinnabar: '#D63A2F', cinnabarLight: '#FF7A66',
-  ink: '#1E1A17',
+  felt: '#1F4BFF', feltHi: '#2F5BFF', feltDeep: '#173CD6', feltWell: '#0E2A99',
+  line: '#B9C8FF', gold: '#FFD23F',
+  white: '#FFFFFF', red: '#FF4D4D', rival: '#FFB3A6',
+  ink: '#14204D',
 };
-const DISPLAY = '"Abril Fatface", Georgia, serif';
+const DISPLAY = '"Lilita One", "Arial Rounded MT Bold", sans-serif';
+// Zone rules are long lines in narrow boxes, so the table keeps a condensed face
+// for small text; the DOM uses Nunito.
 const TEXT = '"Barlow Semi Condensed", "Arial Narrow", sans-serif';
 
 const hex = (c) => parseInt(c.slice(1), 16);
@@ -61,17 +64,17 @@ const PIPS = {
 function paintDie(ctx, s, face) {
   const r = s * 0.2;
   const g = ctx.createLinearGradient(0, 0, s, s);
-  g.addColorStop(0, '#FFFAEC');
-  g.addColorStop(1, '#E2D3AE');
+  g.addColorStop(0, '#FFFFFF');
+  g.addColorStop(1, '#E3E9FF');
   ctx.fillStyle = g;
   ctx.beginPath();
   ctx.roundRect(1, 1, s - 2, s - 2, r);
   ctx.fill();
-  ctx.strokeStyle = 'rgba(90,70,30,0.55)';
+  ctx.strokeStyle = 'rgba(14,42,153,0.55)';
   ctx.lineWidth = Math.max(1, s * 0.02);
   ctx.stroke();
   // Chinese dice: the 1 and the 4 are red, and the 1 is a single fat pip.
-  ctx.fillStyle = face === 1 || face === 4 ? '#C8281E' : C.ink;
+  ctx.fillStyle = face === 1 || face === 4 ? C.red : C.ink;
   const pr = face === 1 ? s * 0.17 : s * 0.095;
   for (const [px, py] of PIPS[face]) {
     ctx.beginPath();
@@ -83,14 +86,14 @@ function paintDie(ctx, s, face) {
 function paintFelt(ctx, L) {
   const { W, H, m, tray } = L;
   const g = ctx.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, Math.max(W, H) * 0.75);
-  g.addColorStop(0, '#14614F');
+  g.addColorStop(0, C.feltHi);
   g.addColorStop(0.6, C.felt);
   g.addColorStop(1, C.feltDeep);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
   // felt nap
   for (let i = 0; i < W * H / 26; i++) {
-    ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.028)' : 'rgba(0,0,0,0.05)';
+    ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,60,0.05)';
     ctx.fillRect(Math.random() * W, Math.random() * H, 1.2, 1.2);
   }
   // the dice well
@@ -103,14 +106,8 @@ function paintFelt(ctx, L) {
   well.addColorStop(0.25, 'rgba(0,0,0,0)');
   ctx.fillStyle = well;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(201,162,74,0.5)';
+  ctx.strokeStyle = 'rgba(255,255,255,0.3)';
   ctx.lineWidth = 1.5;
-  ctx.stroke();
-  // brass inlay around the whole table
-  ctx.strokeStyle = 'rgba(201,162,74,0.35)';
-  ctx.lineWidth = 1;
-  ctx.beginPath();
-  ctx.roundRect(m / 2, m / 3, W - m, H - m / 1.5, 12);
   ctx.stroke();
 }
 
@@ -167,7 +164,7 @@ export class Table {
   async _boot() {
     // Phaser text rasterises on a canvas, so the web fonts must be loaded first.
     if (document.fonts) {
-      await Promise.all(['400 20px "Abril Fatface"', '500 13px "Barlow Semi Condensed"', '600 13px "Barlow Semi Condensed"']
+      await Promise.all(['400 20px "Lilita One"', '600 13px "Barlow Semi Condensed"', '700 13px "Barlow Semi Condensed"']
         .map((f) => document.fonts.load(f))).catch(() => {});
     }
     this.dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -283,7 +280,7 @@ class TableScene extends Phaser.Scene {
   }
 
   // ---------- helpers ----------
-  _text(x, y, str, size, color, { font = TEXT, weight = '500', origin = [0, 0], depth = 2 } = {}) {
+  _text(x, y, str, size, color, { font = TEXT, weight = '600', origin = [0, 0], depth = 2 } = {}) {
     return this.add.text(x, y, str, { fontFamily: font, fontSize: `${size}px`, fontStyle: weight, color })
       .setResolution(this.dpr).setOrigin(origin[0], origin[1]).setDepth(depth);
   }
@@ -330,22 +327,22 @@ class TableScene extends Phaser.Scene {
   // Escalating payoff: 1 = a decent hit, 2 = straight-sized, 3 = triple-sized.
   _celebrate(x, y, level, label) {
     if (level <= 0) return;
-    this._burst(x, y, 10 + level * 14, [C.brassBright, C.ivory, C.brass], { speed: [80, 180 + level * 90] });
+    this._burst(x, y, 10 + level * 14, [C.gold, C.white, C.line], { speed: [80, 180 + level * 90] });
     if (level >= 2) {
-      this._burst(x, y, 20 * level, [C.brassBright, C.cinnabarLight, C.ivory], { tex: 'chip', size: 1.4, life: 1100, speed: [140, 420] });
+      this._burst(x, y, 20 * level, [C.gold, C.rival, C.white], { tex: 'chip', size: 1.4, life: 1100, speed: [140, 420] });
       if (!this.calm) this.cameras.main.shake(140 + level * 80, 0.002 * level);
       if (label) this._callout(label, level);
     }
     if (level >= 3) {
-      this.flash.setFillStyle(hex(C.brassBright)).setAlpha(0.55);
+      this.flash.setFillStyle(hex(C.gold)).setAlpha(0.55);
       this.tweens.add({ targets: this.flash, alpha: 0, duration: 520 });
     }
   }
 
   _callout(str, level) {
     const { tray } = this.L;
-    const t = this._text(tray.x + tray.w / 2, tray.y + tray.h / 2, str, level >= 3 ? 64 : 46, C.brassBright,
-      { font: DISPLAY, weight: '400', origin: [0.5, 0.5], depth: 45 }).setStroke('#3a1208', 8);
+    const t = this._text(tray.x + tray.w / 2, tray.y + tray.h / 2, str, level >= 3 ? 64 : 46, C.gold,
+      { font: DISPLAY, weight: '400', origin: [0.5, 0.5], depth: 45 }).setStroke(C.feltWell, 8);
     this._pop(t, 2.4, 300);
     this.tweens.add({ targets: t, alpha: 0, y: t.y - 26, delay: 800, duration: 350, onComplete: () => t.destroy() });
   }
@@ -365,12 +362,12 @@ class TableScene extends Phaser.Scene {
     const { rail, W, portrait } = this.L;
     const big = portrait ? 30 : 36;
     const cy = rail.y + rail.h / 2;
-    this.youName = this._text(rail.x + 4, cy, this.opts.you, 15, C.ivory, { weight: '600', origin: [0, 0.5] });
-    this.youTotal = this._text(rail.x + 12 + this.youName.width, cy, '0', big, C.brassBright, { font: DISPLAY, weight: '400', origin: [0, 0.5] });
-    this.rivalTotal = this._text(rail.x + rail.w - 4, cy, '', big, C.cinnabarLight, { font: DISPLAY, weight: '400', origin: [1, 0.5] });
-    this.rivalName = this._text(rail.x + rail.w - 4, cy - (portrait ? 8 : 9), this.opts.rival, 15, C.ivory, { weight: '600', origin: [1, 0.5] });
-    this.rivalStatus = this._text(rail.x + rail.w - 4, cy + (portrait ? 9 : 10), '', 13, C.brass, { origin: [1, 0.5] });
-    this.counter = this._text(W / 2, cy - 9, '', 14, C.ivory, { weight: '600', origin: [0.5, 0.5] });
+    this.youName = this._text(rail.x + 4, cy, this.opts.you, 15, C.white, { weight: '700', origin: [0, 0.5] });
+    this.youTotal = this._text(rail.x + 12 + this.youName.width, cy, '0', big, C.gold, { font: DISPLAY, weight: '400', origin: [0, 0.5] });
+    this.rivalTotal = this._text(rail.x + rail.w - 4, cy, '', big, C.rival, { font: DISPLAY, weight: '400', origin: [1, 0.5] });
+    this.rivalName = this._text(rail.x + rail.w - 4, cy - (portrait ? 8 : 9), this.opts.rival, 15, C.white, { weight: '700', origin: [1, 0.5] });
+    this.rivalStatus = this._text(rail.x + rail.w - 4, cy + (portrait ? 9 : 10), '', 13, C.line, { origin: [1, 0.5] });
+    this.counter = this._text(W / 2, cy - 9, '', 14, C.white, { weight: '700', origin: [0.5, 0.5] });
     this.pips = this.add.graphics().setDepth(2);
     this._drawPips(-1);
   }
@@ -381,7 +378,7 @@ class TableScene extends Phaser.Scene {
     this.pips.clear();
     for (let i = 0; i < n; i++) {
       const x = W / 2 + (i - (n - 1) / 2) * gap;
-      this.pips.fillStyle(hex(i < turn ? C.brass : i === turn ? C.brassBright : '#000000'), i <= turn ? 1 : 0.35);
+      this.pips.fillStyle(hex(i < turn ? C.line : i === turn ? C.gold : '#000000'), i <= turn ? 1 : 0.35);
       this.pips.fillCircle(x, y, i === turn ? 4.5 : 3);
     }
   }
@@ -393,7 +390,7 @@ class TableScene extends Phaser.Scene {
     const n = this.variant.dice;
     const g = this.add.graphics().setDepth(1);
     const ds = Math.min(18, (r.w - 8 - (n - 1) * 2) / n);
-    const name = this._text(r.x + r.w / 2, r.y + 6, zone.name, this.L.portrait ? 11 : 13, C.ivory, { weight: '600', origin: [0.5, 0] }).setAlpha(0.8);
+    const name = this._text(r.x + r.w / 2, r.y + 6, zone.name, this.L.portrait ? 11 : 13, C.white, { weight: '700', origin: [0.5, 0] }).setAlpha(0.8);
     const dice = Array.from({ length: n }, (_, k) =>
       this._die('mini1', r.x + r.w / 2 + (k - (n - 1) / 2) * (ds + 2), r.y + r.h - ds / 2 - (this.L.portrait ? 9 : 14), ds).setVisible(false));
     const cell = { r, g, name, dice, ds, roll: null, hot: false };
@@ -406,7 +403,7 @@ class TableScene extends Phaser.Scene {
     g.clear();
     g.fillStyle(0x000000, cell.roll ? 0.28 : 0.12);
     g.fillRoundedRect(r.x, r.y, r.w, r.h, 5);
-    g.lineStyle(cell.hot ? 2 : 1, hex(cell.hot ? C.cinnabarLight : C.brass), cell.hot ? 1 : 0.4);
+    g.lineStyle(cell.hot ? 2 : 1, hex(cell.hot ? C.rival : C.line), cell.hot ? 1 : 0.4);
     g.strokeRoundedRect(r.x, r.y, r.w, r.h, 5);
   }
 
@@ -416,15 +413,15 @@ class TableScene extends Phaser.Scene {
     const p = this.L.portrait;
     const g = this.add.graphics().setDepth(1);
     const pad = 12;
-    const name = this._text(r.x + pad, r.y + (p ? 7 : 10), zone.name, p ? 21 : 22, C.ivory, { font: DISPLAY, weight: '400' });
-    const num = this._text(r.x + r.w - pad, r.y + (p ? 10 : 13), String(i + 1), 13, C.brass, { weight: '600', origin: [1, 0] }).setAlpha(0.7);
-    const rule = this._text(r.x + pad, r.y + (p ? 35 : 42), zone.rule, 14, C.ivory, {}).setAlpha(0.82);
-    const hint = this._text(r.x + pad, r.y + (p ? 53 : 61), zone.hint, 14, C.brassBright, { weight: '600' });
+    const name = this._text(r.x + pad, r.y + (p ? 7 : 10), zone.name, p ? 21 : 22, C.white, { font: DISPLAY, weight: '400' });
+    const num = this._text(r.x + r.w - pad, r.y + (p ? 10 : 13), String(i + 1), 13, C.line, { weight: '700', origin: [1, 0] }).setAlpha(0.7);
+    const rule = this._text(r.x + pad, r.y + (p ? 35 : 42), zone.rule, 14, C.white, {}).setAlpha(0.82);
+    const hint = this._text(r.x + pad, r.y + (p ? 53 : 61), zone.hint, 14, C.gold, { weight: '700' });
     const ds = p ? 24 : 26;
     const baseY = r.y + r.h - pad - ds / 2 + 2;
     const dice = Array.from({ length: n }, (_, k) => this._die('mini1', r.x + pad + ds / 2 + k * (ds + 3), baseY, ds).setVisible(false));
     // One number in the corner: the live preview while open, the banked points once filled.
-    const points = this._text(r.x + r.w - pad, baseY, '', p ? 30 : 34, C.ivory, { font: DISPLAY, weight: '400', origin: [1, 0.5] });
+    const points = this._text(r.x + r.w - pad, baseY, '', p ? 30 : 34, C.white, { font: DISPLAY, weight: '400', origin: [1, 0.5] });
     const cell = { zone, r, g, name, num, rule, hint, dice, ds, points, hot: false };
     this._drawZone(cell, i);
     return cell;
@@ -438,8 +435,8 @@ class TableScene extends Phaser.Scene {
     g.clear();
     g.fillStyle(0x000000, filled ? 0.3 : lit ? 0.02 : 0.1);
     g.fillRoundedRect(r.x, r.y, r.w, r.h, 8);
-    if (lit) { g.fillStyle(hex(C.brassBright), 0.1); g.fillRoundedRect(r.x, r.y, r.w, r.h, 8); }
-    g.lineStyle(lit ? 2.5 : 1.5, hex(lit ? C.brassBright : C.brass), filled && !cell.hot ? 0.35 : lit ? 1 : 0.8);
+    if (lit) { g.fillStyle(hex(C.gold), 0.1); g.fillRoundedRect(r.x, r.y, r.w, r.h, 8); }
+    g.lineStyle(lit ? 2.5 : 1.5, hex(lit ? C.gold : C.line), filled && !cell.hot ? 0.35 : lit ? 1 : 0.8);
     g.strokeRoundedRect(r.x, r.y, r.w, r.h, 8);
     for (const t of [cell.name, cell.rule, cell.hint]) t.setAlpha(filled && !cell.hot ? 0.5 : t === cell.rule ? 0.82 : 1);
   }
@@ -452,7 +449,7 @@ class TableScene extends Phaser.Scene {
       if (this.mine[i]) return;
       if (!this.roll || !this.live) { cell.points.setText(''); return; }
       const pts = cell.zone.score(this.roll);
-      cell.points.setText(`+${pts}`).setColor(C.ivory).setAlpha(pts ? 0.95 : 0.3);
+      cell.points.setText(`+${pts}`).setColor(C.white).setAlpha(pts ? 0.95 : 0.3);
     });
   }
 
@@ -463,7 +460,7 @@ class TableScene extends Phaser.Scene {
     this.home = Array.from({ length: n }, (_, k) => ({ x: tray.x + tray.w / 2 + (k - (n - 1) / 2) * (die + 14), y: cy }));
     this.shadows = this.home.map((h) => this.add.image(h.x, h.y + die * 0.52, 'shadow').setDisplaySize(die * 1.15, die * 0.4).setDepth(9).setVisible(false));
     this.dice = this.home.map((h) => this._die('die1', h.x, h.y, die, 10).setVisible(false));
-    this.status = this._text(tray.x + tray.w / 2, tray.y + tray.h - 22, '', 15, C.ivory, { origin: [0.5, 0.5] }).setAlpha(0.85);
+    this.status = this._text(tray.x + tray.w / 2, tray.y + tray.h - 22, '', 15, C.white, { origin: [0.5, 0.5] }).setAlpha(0.85);
     this.timer = this.add.graphics().setDepth(2);
   }
 
@@ -474,7 +471,7 @@ class TableScene extends Phaser.Scene {
     this.timer.clear();
     if (frac == null) return;
     this.timer.fillStyle(0x000000, 0.35).fillRoundedRect(x, y, w, 3, 1.5);
-    this.timer.fillStyle(hex(frac < 0.25 ? C.cinnabarLight : C.brass), 1).fillRoundedRect(x, y, Math.max(3, w * frac), 3, 1.5);
+    this.timer.fillStyle(hex(frac < 0.25 ? C.rival : C.line), 1).fillRoundedRect(x, y, Math.max(3, w * frac), 3, 1.5);
   }
 
   // ---------- a turn ----------
@@ -592,7 +589,7 @@ class TableScene extends Phaser.Scene {
       });
     });
     this._after(ms + 90, () => {
-      cell.points.setText(String(points)).setColor(points ? C.brassBright : C.ivory).setAlpha(points ? 1 : 0.4);
+      cell.points.setText(String(points)).setColor(points ? C.gold : C.white).setAlpha(points ? 1 : 0.4);
       this._pop(cell.points, 1.9);
       this._countTo(this.youTotal, this.myTotal, this.myTotal + points);
       this.myTotal += points;
@@ -636,23 +633,23 @@ class TableScene extends Phaser.Scene {
     const ds = portrait ? 34 : 40;
     const side = portrait ? 108 : 190; // distance of each player's column from centre
     const top = tray.y + 16;
-    const title = this._text(cx, top, '', portrait ? 24 : 28, C.ivory, { font: DISPLAY, weight: '400', origin: [0.5, 0] });
+    const title = this._text(cx, top, '', portrait ? 24 : 28, C.white, { font: DISPLAY, weight: '400', origin: [0.5, 0] });
     const col = (sign, color) => ({
       dice: Array.from({ length: n }, (_, k) => this._die('mini1', cx + sign * side + (k - (n - 1) / 2) * (ds + 4), top + 26, ds, 12).setVisible(false)),
       pts: this._text(cx + sign * side, top + 76, '', portrait ? 44 : 52, color, { font: DISPLAY, weight: '400', origin: [0.5, 0.5], depth: 12 }),
     });
-    const a = col(-1, C.brassBright), b = col(1, C.cinnabarLight);
+    const a = col(-1, C.gold), b = col(1, C.rival);
     const barW = Math.min(300, tray.w - 40), barY = tray.y + tray.h - 16;
-    const lead = this._text(cx, barY - 16, '', 15, C.ivory, { weight: '600', origin: [0.5, 0.5] });
+    const lead = this._text(cx, barY - 16, '', 15, C.white, { weight: '700', origin: [0.5, 0.5] });
     const bar = this.add.graphics().setDepth(2);
     const tug = { v: 0 }; // -1 rival far ahead … +1 you far ahead
     const drawBar = () => {
       bar.clear();
       bar.fillStyle(0x000000, 0.4).fillRoundedRect(cx - barW / 2, barY, barW, 6, 3);
       const w = (barW / 2) * Math.abs(tug.v);
-      bar.fillStyle(hex(tug.v >= 0 ? C.brassBright : C.cinnabarLight), 1);
+      bar.fillStyle(hex(tug.v >= 0 ? C.gold : C.rival), 1);
       if (w > 0.5) bar.fillRect(tug.v >= 0 ? cx - w : cx, barY, w, 6); // grows towards the leader's side
-      bar.fillStyle(hex(C.ivory), 1).fillRect(cx - 1, barY - 3, 2, 12);
+      bar.fillStyle(hex(C.white), 1).fillRect(cx - 1, barY - 3, 2, 12);
     };
     drawBar();
 
@@ -690,7 +687,7 @@ class TableScene extends Phaser.Scene {
         const diff = z.totalA - z.totalB;
         this.tweens.add({ targets: tug, v: Math.max(-1, Math.min(1, diff / 30)), duration: 300, ease: 'Cubic.easeOut', onUpdate: drawBar });
         lead.setText(diff > 0 ? `${this.opts.you} lead by ${diff}` : diff < 0 ? `${this.opts.rival} leads by ${-diff}` : 'Level');
-        lead.setColor(diff > 0 ? C.brassBright : diff < 0 ? C.cinnabarLight : C.ivory);
+        lead.setColor(diff > 0 ? C.gold : diff < 0 ? C.rival : C.white);
       });
       this._after(beat * 3 + 250, () => step(i + 1));
     };
@@ -706,16 +703,16 @@ class TableScene extends Phaser.Scene {
     for (const p of this.revealParts) this.tweens.add({ targets: p, alpha: 0, duration: 200 });
     const won = result.result === 'a', lost = result.result === 'b';
     const banner = this._text(cx, cy - 8, won ? 'You win' : lost ? `${this.opts.rival} wins` : 'Draw', this.L.portrait ? 50 : 64,
-      won ? C.brassBright : lost ? C.cinnabarLight : C.ivory, { font: DISPLAY, weight: '400', origin: [0.5, 0.5], depth: 45 }).setStroke('#0a2a24', 8);
+      won ? C.gold : lost ? C.rival : C.white, { font: DISPLAY, weight: '400', origin: [0.5, 0.5], depth: 45 }).setStroke(C.feltWell, 8);
     const sub = this._text(cx, cy + 40, result.tiebreak
       ? `Level on ${result.totalA} — decided on zones won, ${result.zonesWonA} to ${result.zonesWonB}`
-      : `${result.totalA} to ${result.totalB}`, 17, C.ivory, { weight: '600', origin: [0.5, 0.5], depth: 45 });
+      : `${result.totalA} to ${result.totalB}`, 17, C.white, { weight: '700', origin: [0.5, 0.5], depth: 45 });
     this._pop(banner, 2.6, 380);
     this._pop(sub, 1.2, 380);
     if (won) {
       for (let k = 0; k < 4; k++) {
         this._after(k * 160, () => this._burst(rnd(W * 0.15, W * 0.85), rnd(H * 0.1, H * 0.35), 46,
-          [C.brassBright, C.ivory, C.cinnabarLight, '#5FD3A6'], { tex: 'chip', size: 1.5, life: 1700, speed: [120, 460], gravity: 420 }));
+          [C.gold, C.white, C.rival, C.line], { tex: 'chip', size: 1.5, life: 1700, speed: [120, 460], gravity: 420 }));
       }
       this._celebrate(cx, cy, 3);
     }

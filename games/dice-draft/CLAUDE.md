@@ -31,7 +31,7 @@ node sim/balance.js --matches 5000     # quick, noisier run
 ## Architecture
 
 ```
-index.html        screen markup: menu / play / end (toggled by .hidden)
+index.html        screen markup: menu / setup / play / end (toggled by .hidden), two dialogs
 css/styles.css    DOM styling; palette at :root
 js/config.js      GAME_NAME, the rule library, the classic pay table, VARIANTS, buildVariant()
 js/rng.js         seeded RNG (mulberry32)
@@ -90,19 +90,25 @@ BALANCE.md        generated balance report — committed, regenerate after any p
 
 ## Visual theme
 
-A Sic Bo parlour: jade felt with brass printed linework, set in dark oxblood lacquer.
+Arcade blue: a cobalt ground, chunky white dice, sticker-style hard shadows and one
+loud yellow. Chosen from four mockups; keep new UI in this language.
 
 - Palette is in `:root` in `css/styles.css` and mirrored in the `C` map at the top of
   `table.js` (WebGL can't read CSS vars) — change both.
-- Dice are ivory with **red 1 and 4 pips**, as on Chinese dice. Keep that in any die
-  rendering, including the DOM dice on the result screen.
-- Abril Fatface for zone names and numerals; Barlow Semi Condensed for everything else.
-  Sentence case throughout.
-- Brass-gold is the player, cinnabar red is the rival, everywhere.
+- Yellow is the player and the primary action; red is the rival (lightened to
+  `--rival` wherever it sits as text on blue). Dice keep **red 1 and 4 pips**.
+- Depth is a solid offset shadow in `--shadow`, never a soft blur: buttons, option
+  cards, panels, dialogs, the menu dice and the canvas frame all use it.
+- Lilita One for titles, zone names and numerals. Nunito for DOM text. The table's
+  small text stays Barlow Semi Condensed, because zone rules are long lines in narrow
+  boxes and Nunito overflows them. Sentence case throughout.
+- The menu is three actions only: Play, How to play, Tutorial. Rival and table are
+  picked on the `setup` screen after Play. Tutorial is a placeholder dialog.
 - Celebration scales with the hit (`_level()` in `table.js`): Straight and Triple by
   their `celebrate` rank in config, other zones by the size of the number. The full
-  gold flash is for Triple and a match win only.
-- `prefers-reduced-motion` skips the tumble, shake and particles.
+  yellow flash is for Triple and a match win only.
+- `prefers-reduced-motion` stops the menu dice bobbing and skips the tumble, shake
+  and particles on the table.
 
 ## Gotchas
 

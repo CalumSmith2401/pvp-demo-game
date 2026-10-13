@@ -25,10 +25,9 @@ const state = {
 
 let table = null;
 const $ = (sel) => document.querySelector(sel);
-const SCREENS = ['menu', 'play', 'end'];
+const SCREENS = ['menu', 'setup', 'play', 'end'];
 function show(name) {
   SCREENS.forEach((s) => $('#' + s).classList.toggle('hidden', s !== name));
-  document.body.classList.toggle('in-match', name !== 'menu'); // the title only heads the menu
 }
 const say = (msg) => { $('#live').textContent = msg; };
 
@@ -207,21 +206,26 @@ function endMatch() {
   $('#audit').textContent = `Match seed ${match.audit().seed}. Both players were dealt the same eight rolls from it.`;
 }
 
-function leaveMatch() {
+// Abandon whatever is running and go to `screen`.
+function leaveMatch(screen) {
   state.run++;
   clearTimers();
   if (table) table.stop();
-  show('menu');
+  show(screen);
 }
 
 // ---------- wiring ----------
 document.title = GAME_NAME;
-$('#title').textContent = GAME_NAME;
+$('#title').innerHTML = GAME_NAME.split(' ').join('<br>'); // one word per line on the menu
 $('#turn-seconds').textContent = TURN_SECONDS;
 $('#start-btn').onclick = startMatch;
 $('#rematch-btn').onclick = startMatch;
-$('#menu-btn').onclick = leaveMatch;
-$('#quit-btn').onclick = leaveMatch;
+$('#play-btn').onclick = () => show('setup');
+$('#back-btn').onclick = () => show('menu');
+$('#howto-btn').onclick = () => $('#howto-dialog').showModal();
+$('#tutorial-btn').onclick = () => $('#tutorial-dialog').showModal(); // placeholder until the tutorial exists
+$('#menu-btn').onclick = () => leaveMatch('setup');
+$('#quit-btn').onclick = () => leaveMatch('menu');
 $('#skip-btn').onclick = () => table.skip();
 document.addEventListener('keydown', (e) => {
   if ($('#play').classList.contains('hidden') || e.metaKey || e.ctrlKey || e.altKey) return;
