@@ -1,6 +1,7 @@
-// All tunable game data lives here: the title, the zone pay table, and the named
-// variants (seasonal pay tables / game modes). Rebalancing or rotating a season
-// is a data change in this file — nothing else hardcodes a point value.
+// All tunable game data lives here: the title, the pool of zones and what they
+// pay, the extras (power-ups, hot zone, golden die, streaks, sweeps, bounties) and
+// the named variants. Rebalancing or rotating a season is a data change in this
+// file — nothing else hardcodes a point value.
 
 export const GAME_NAME = 'Dice Draft'; // working title; the only place it is spelled out
 
@@ -67,6 +68,36 @@ const RULES = {
     hint: (p) => (p.first === p.extra ? `${p.first} pts per ${p.face}` : `${p.first} pts, +${p.extra} per extra ${p.face}`),
     max: (p, n) => p.first + (n - 1) * p.extra,
   },
+  parity: {
+    score: (r, p) => r.filter((d) => (d % 2 === 0) === p.even).length * p.per,
+    rule: (p) => `Each ${p.even ? 'even' : 'odd'} die`,
+    hint: (p) => `${p.per} pts per ${p.even ? 'even' : 'odd'} die`,
+    max: (p, n) => p.per * n,
+  },
+  exact: {
+    score: (r, p) => (p.totals.includes(sum(r)) ? p.points : 0),
+    rule: (p) => `Total exactly ${p.totals.join(' or ')}`,
+    hint: (p) => `${p.points} pts`,
+    max: (p) => p.points,
+  },
+  distinct: {
+    score: (r, p) => (new Set(r).size === r.length ? p.points : 0),
+    rule: (p, n) => `All ${n} dice different`,
+    hint: (p) => `${p.points} pts`,
+    max: (p) => p.points,
+  },
+  pairOf: {
+    score: (r, p) => (p.faces.some((f) => count(r, f) >= 2) ? p.points : 0),
+    rule: (p) => `A pair of ${p.faces.map((f) => `${f}s`).join(', ').replace(/, ([^,]*)$/, ' or $1')}`,
+    hint: (p) => `${p.points} pts`,
+    max: (p) => p.points,
+  },
+  pairSum: {
+    score: (r, p) => (r.some((d, i) => r.some((e, j) => j > i && d + e === p.target)) ? p.points : 0),
+    rule: (p) => `Two dice add up to ${p.target}`,
+    hint: (p) => `${p.points} pts`,
+    max: (p) => p.points,
+  },
   total: {
     score: (r, p) => Math.round(sum(r) * p.mult),
     rule: () => 'Any roll — never zero',
@@ -76,55 +107,93 @@ const RULES = {
 };
 const setWord = (n) => (n === 2 ? 'double' : n === 3 ? 'triple' : 'set');
 
-// ---------- the classic pay table ----------
-// Reveal order is array order (Zone 1 → Zone 8). `celebrate` ranks how big a hit
-// in that zone should feel (see table.js); it has no effect on scoring.
-// These values are tuned — see BALANCE.md before changing them, and re-run
-// `node sim/balance.js` after.
-const CLASSIC_ZONES = [
-  { id: 'small',    name: 'Small',    kind: 'low',   pay: { base: 2, step: 2 }, celebrate: 1 },
-  { id: 'big',      name: 'Big',      kind: 'high',  pay: { base: 2, step: 2 }, celebrate: 1 },
-  { id: 'triple',   name: 'Triple',   kind: 'set',   pay: { points: 30 }, celebrate: 3 },
-  { id: 'double',   name: 'Double',   kind: 'pair',  pay: { points: 10, perPip: 0 }, celebrate: 1 },
-  { id: 'straight', name: 'Straight', kind: 'run',   pay: { points: 15 }, celebrate: 2 },
-  { id: 'sixes',    name: 'Sixes',    kind: 'face',  pay: { face: 6, first: 4, extra: 4 }, celebrate: 1 },
-  { id: 'ones',     name: 'Ones',     kind: 'face',  pay: { face: 1, first: 4, extra: 4 }, celebrate: 1 },
-  { id: 'total',    name: 'Total',    kind: 'total', pay: { mult: 1 }, celebrate: 1 },
+// ---------- the zone pool ----------
+// Every zone the game knows. A match deals `deal` of them (or uses a fixed list).
+// `celebrate` ranks how big a hit in that zone should feel (see table.js); it has
+// no effect on scoring. Values are tuned — see BALANCE.md before changing them, and
+// re-run `node sim/balance.js --write` after.
+const ZONE_POOL = [
+  { id: 'small',    name: 'Small',     kind: 'low',      pay: { base: 2, step: 2 }, celebrate: 1 },
+  { id: 'big',      name: 'Big',       kind: 'high',     pay: { base: 2, step: 2 }, celebrate: 1 },
+  { id: 'triple',   name: 'Triple',    kind: 'set',      pay: { points: 30 }, celebrate: 3 },
+  { id: 'double',   name: 'Double',    kind: 'pair',     pay: { points: 10, perPip: 0 }, celebrate: 1 },
+  { id: 'straight', name: 'Straight',  kind: 'run',      pay: { points: 15 }, celebrate: 2 },
+  { id: 'sixes',    name: 'Sixes',     kind: 'face',     pay: { face: 6, first: 4, extra: 4 }, celebrate: 1 },
+  { id: 'ones',     name: 'Ones',      kind: 'face',     pay: { face: 1, first: 4, extra: 4 }, celebrate: 1 },
+  { id: 'total',    name: 'Total',     kind: 'total',    pay: { mult: 1 }, celebrate: 1 },
+  { id: 'evens',    name: 'Evens',     kind: 'parity',   pay: { even: true, per: 3 }, celebrate: 1 },
+  { id: 'odds',     name: 'Odds',      kind: 'parity',   pay: { even: false, per: 3 }, celebrate: 1 },
+  { id: 'bullseye', name: 'Bullseye',  kind: 'exact',    pay: { totals: [10, 11], points: 12 }, celebrate: 1 },
+  { id: 'rainbow',  name: 'Rainbow',   kind: 'distinct', pay: { points: 6 }, celebrate: 1 },
+  { id: 'highpair', name: 'High Pair', kind: 'pairOf',   pay: { faces: [4, 5, 6], points: 14 }, celebrate: 2 },
+  { id: 'lucky7',   name: 'Lucky 7',   kind: 'pairSum',  pay: { target: 7, points: 8 }, celebrate: 1 },
 ];
+const CLASSIC_EIGHT = ['small', 'big', 'triple', 'double', 'straight', 'sixes', 'ones', 'total'];
 
-// ---------- variants ----------
-// A variant is a named game mode: dice per roll, rolls per match, and a pay table
-// expressed as per-zone overrides of the classic one. Add an entry and it shows up
-// in the menu, the simulator and the tests automatically.
-export const VARIANTS = {
-  classic: {
-    id: 'classic', name: 'Classic', blurb: 'The standard table. Every zone pulls its weight.',
-    dice: 3, rolls: 8, pay: {},
-  },
-  triples: {
-    id: 'triples', name: 'Triples Season', blurb: 'Triple pays big. How long dare you hold it open?',
-    dice: 3, rolls: 8, pay: { triple: { points: 50 } },
-  },
-  lowroller: {
-    id: 'lowroller', name: 'Low Roller', blurb: 'Small and Ones are juiced. Low totals are gold.',
-    dice: 3, rolls: 8, pay: { small: { base: 3, step: 3 }, ones: { first: 6, extra: 6 } },
-  },
+// ---------- the extras ----------
+// One block of switches and numbers per variant. Everything here is the same for
+// both players, and nothing random happens that isn't dealt to both.
+const EXTRAS = {
+  offers: 2,          // rolls shown each turn; you place one ("pick one of two")
+  deal: 8,            // zones dealt from the pool each match; or `zoneIds: [...]` for a fixed table
+  hot: true,          // one zone per match pays an extra 1×
+  gold: true,         // one die per roll is gold: it adds its face to whatever the roll scores
+  streak: { step: 1, cap: 5 }, // each scoring placement in a row adds `step` more, up to step × cap
+  sweep: 12,          // bonus for scoring in all four zones of a set (zones 1–4, zones 5–8)
+  bounty: 2,          // bonus for winning a zone outright at the reveal
+  powers: ['flip', 'double', 'hold', 'peek'], // each usable once per match
+};
+const NO_EXTRAS = { offers: 1, zoneIds: CLASSIC_EIGHT, hot: false, gold: false, streak: null, sweep: 0, bounty: 0, powers: [] };
+
+// With two rolls to pick from and a Flip in hand, a Triple turns up far more often
+// than in the original game (a pair plus its opposite face flips into one), and it
+// can then be doubled. At the original 30 it out-earned every other zone 2.7 to 1.
+const ARCADE_PAY = { triple: { points: 18 } };
+
+// What each power-up does, for the buttons and How to play.
+export const POWERS = {
+  flip:   { name: 'Flip',   blurb: 'Turn one die over to its opposite face.' },
+  double: { name: 'Double', blurb: 'This placement pays an extra 1×.' },
+  hold:   { name: 'Hold',   blurb: 'Keep this roll and place it on a later turn.' },
+  peek:   { name: 'Peek',   blurb: 'See the next two rolls now.' },
 };
 
-// Resolve a variant into playable zones: each gets a bound `score(roll)` plus the
-// display strings generated from its (possibly overridden) pay values.
-export function buildVariant(id = 'classic', overrides = {}) {
-  const v = { ...(VARIANTS[id] || VARIANTS.classic), ...overrides };
-  const zones = CLASSIC_ZONES.map((z, index) => {
+// ---------- variants ----------
+// A variant is a named game mode: its extras, plus per-zone overrides of the pool's
+// pay values. Add an entry and it shows up in the menu, the simulator and the tests
+// automatically.
+export const VARIANTS = {
+  arcade: {
+    id: 'arcade', name: 'Arcade', blurb: 'Everything on: two rolls to pick from, power-ups, a hot zone and a golden die.',
+    dice: 3, rolls: 8, pay: ARCADE_PAY, ...EXTRAS,
+  },
+  triples: {
+    id: 'triples', name: 'Triples Season', blurb: 'Arcade rules, and Triple pays 30. Is it worth your Flip?',
+    dice: 3, rolls: 8, pay: { ...ARCADE_PAY, triple: { points: 30 } }, ...EXTRAS,
+  },
+  classic: {
+    id: 'classic', name: 'Classic', blurb: 'The original: eight fixed zones, one roll at a time, no extras.',
+    dice: 3, rolls: 8, pay: {}, ...NO_EXTRAS,
+  },
+};
+export const DEFAULT_VARIANT = 'arcade';
+
+// Resolve a variant into something playable: the pool as zones with a bound
+// `score(dice)` and display strings generated from their (possibly overridden) pay
+// values. engine.makeTable() then deals a match's zones from `pool`.
+export function buildVariant(id = DEFAULT_VARIANT, overrides = {}) {
+  const v = { ...(VARIANTS[id] || VARIANTS[DEFAULT_VARIANT]), ...overrides };
+  const pool = ZONE_POOL.map((z) => {
     const pay = { ...z.pay, ...(v.pay[z.id] || {}) };
     const rule = RULES[z.kind];
     return {
-      id: z.id, index, name: z.name, kind: z.kind, pay, celebrate: z.celebrate,
+      id: z.id, name: z.name, kind: z.kind, pay, celebrate: z.celebrate,
       rule: rule.rule(pay, v.dice),
       hint: rule.hint(pay, v.dice),
       max: rule.max(pay, v.dice),
-      score: (roll) => rule.score(roll, pay),
+      score: (dice) => rule.score(dice, pay),
     };
   });
-  return { id: v.id, name: v.name, blurb: v.blurb, dice: v.dice, rolls: v.rolls, zones };
+  const { pay, ...rest } = v;
+  return { ...rest, pool, streak: v.streak || { step: 0, cap: 0 } };
 }

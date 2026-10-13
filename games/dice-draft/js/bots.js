@@ -1,103 +1,126 @@
 // Opponent bots, tiered easy → hard. Every bot plays through the same view the
-// human gets from match.view(): the current roll, both boards as revealed so far,
-// and nothing about future rolls or the opponent's pending placement.
+// human gets from match.view(): the rolls on offer, both boards as revealed so far,
+// its own power-ups, and nothing about future rolls or the opponent's pending
+// action. A bot returns an action for match.act(), or { peek: true } to spend its
+// Peek and be asked again.
 //
-//   1 Tourist   — random open zone
-//   2 Regular   — greedy: wherever this roll scores most right now
+//   1 Tourist   — a random roll into a random open zone; never touches a power-up
+//   2 Regular   — greedy: whatever scores most right now
 //   3 Grinder   — greedy, but counts what an average roll would have earned there
-//   4 Shark     — exact expected-score solver (see solver.js)
-//   5 The House — Shark, plus an exact win-probability endgame that reads the
-//                 scoreboard: protects a lead, gambles when behind
-import { openZones } from './engine.js';
-import { solverFor, maskOf } from './solver.js';
+//   4 Shark     — the exact solver (solver.js): right roll, right zone, Flip and
+//                 Double at the right moment
+//   5 The House — Shark, plus Hold and Peek, searched a turn ahead
+import { openZones, scorePlacement, flipDie } from './engine.js';
+import { zoneAverages } from './match.js';
 
-const argmax = (items, score, rand) => {
-  let best = [], bestS = -Infinity;
-  for (const it of items) {
-    const s = score(it);
-    if (s > bestS + 1e-9) { best = [it]; bestS = s; } else if (s > bestS - 1e-9) best.push(it);
-  }
-  return best.length === 1 ? best[0] : best[Math.floor(rand() * best.length)];
-};
+const pickRandom = (list, rand) => list[Math.floor(rand() * list.length)];
 
 function tourist(view, { rand }) {
-  const open = openZones(view.board);
-  return open[Math.floor(rand() * open.length)];
+  return { pick: Math.floor(rand() * view.offers.length), zone: pickRandom(openZones(view.board), rand) };
 }
 
-function regular(view, { variant, rand }) {
-  return argmax(openZones(view.board), (z) => variant.zones[z].score(view.roll), rand);
+// Shared by the two greedy bots: score every roll × zone (and every Flip) by
+// `worth`, take the best, and spend Flip / Double when the gain clears a bar.
+function greedy(view, { variant, table, rand }, worth, bars) {
+  const open = openZones(view.board);
+  const rate = (flips) => {
+    let top = [], best = -Infinity;
+    view.offers.forEach((offer, pick) => {
+      for (const flip of flips) {
+        const rolled = flip == null ? offer : flipDie(offer, flip);
+        for (const zone of open) {
+          const pts = scorePlacement(variant, table, zone, rolled, false, view.streak);
+          const w = worth(pts, zone);
+          if (w > best + 1e-9) { top = []; best = w; }
+          if (w > best - 1e-9) top.push({ pick, flip, zone, pts });
+        }
+      }
+    });
+    return { best, choice: pickRandom(top, rand) };
+  };
+  const plain = rate([null]);
+  let { choice } = plain;
+  if (view.powers.flip) {
+    const flipped = rate([null, ...Array.from({ length: variant.dice }, (_, i) => i)]);
+    if (flipped.best >= plain.best + bars.flip) choice = flipped.choice;
+  }
+  // Doubling adds another (base + gold): worth it on a big hit, or when time is running out.
+  const gain = choice.pts.base + choice.pts.goldPts;
+  const double = !!view.powers.double && (gain >= bars.double || (view.turn >= view.turns - 2 && gain > 0));
+  return { pick: choice.pick, flip: choice.flip, zone: choice.zone, double };
 }
+
+const regular = (view, ctx) => greedy(view, ctx, (pts) => pts.total, { flip: 5, double: 14 });
 
 // Points above what the zone averages from a random roll: a one-step read on
 // opportunity cost that a thoughtful human can do in their head.
-function grinder(view, { variant, rand }) {
-  const { zoneEV } = solverFor(variant);
-  return argmax(openZones(view.board), (z) => variant.zones[z].score(view.roll) - zoneEV[z], rand);
+function grinder(view, ctx) {
+  const avg = zoneAverages(ctx.variant, ctx.table);
+  return greedy(view, ctx, (pts, zone) => pts.total - avg[zone] * (ctx.table.hot === zone ? 2 : 1), { flip: 4, double: 12 });
 }
 
-function shark(view, { variant }) {
-  return solverFor(variant).pick(view.board, view.roll);
+function shark(view, { solver }) {
+  return solver.options(solver.stateOf(view), view.offers)[0].action;
 }
 
-// ---- The House: win-probability endgame ----
-// With few rolls left, maximising expected score is not the same as maximising
-// the chance of winning. From ENDGAME rolls out, search exactly: I pick the zone
-// with the best win chance, assuming the opponent plays the expected-score line.
-export const HOUSE = { endgame: 6 }; // rolls from the end where the search takes over
+// ---- The House ----
+// Margins: how much better (in expected points) Hold has to look before it is
+// spent, and how tight a decision has to be before Peek is.
+const HOLD_EDGE = 0.4;
+const PEEK_GAP = 1.5;
 
-function winChance(s, myMask, oppMask, diff, left) {
-  if (left === 0) return diff > 0 ? 1 : diff === 0 ? 0.5 : 0;
-  // Positions repeat constantly across rolls and matches, so remember them.
-  const memo = (s.winMemo ||= new Map());
-  const key = ((myMask << 8) | oppMask) * 1024 + diff + 512;
-  const known = memo.get(key);
-  if (known !== undefined) return known;
-  const { table, pts, choice } = s;
-  const R = table.prob.length;
-  let total = 0;
-  for (let r = 0; r < R; r++) {
-    const oz = choice[oppMask * R + r];
-    const d = diff - pts[oz][r];
-    const om = oppMask ^ (1 << oz);
-    let best = 0;
-    for (let z = 0; (1 << z) <= myMask; z++) {
-      if (!(myMask & (1 << z))) continue;
-      const w = winChance(s, myMask ^ (1 << z), om, d + pts[z][r], left - 1);
-      if (w > best) best = w;
+function house(view, { solver, variant }) {
+  const st = solver.stateOf(view);
+  const lastTurn = view.turn === view.turns - 1;
+
+  // A roll set aside last turn: place it now, together with this turn's pick.
+  if (view.held) return solver.bestWithHeld({ ...st, board: view.board }, view.held, view.offers).action;
+
+  const options = solver.options(st, view.offers);
+  let best = options[0];
+
+  // Peeked: the next turn is known, so score each move by this turn + the best reply to it.
+  if (view.next) {
+    let top = -Infinity;
+    for (const o of options) {
+      const v = o.points + solver.options(o.after, view.next)[0].value;
+      if (v > top) { top = v; best = o; }
     }
-    total += table.prob[r] * best;
+    return best.action;
   }
-  memo.set(key, total);
-  return total;
+
+  if (lastTurn) return best.action;
+
+  // Hold: is keeping one of these rolls for a double placement next turn worth more?
+  if (view.powers.hold) {
+    let hold = null;
+    view.offers.forEach((offer, pick) => {
+      for (let f = -1; f < (st.flip ? variant.dice : 0); f++) {
+        const rolled = f < 0 ? offer : flipDie(offer, f);
+        const v = solver.holdValue({ ...st, flip: f < 0 ? st.flip : 0 }, solver.typeIndex(rolled.dice, rolled.gold));
+        if (!hold || v > hold.value) hold = { value: v, action: { pick, flip: f < 0 ? null : f, hold: true } };
+      }
+    });
+    if (hold.value > best.value + HOLD_EDGE) return hold.action;
+  }
+
+  // Peek: spend it on a close call (two different placements nearly level), or
+  // before it expires.
+  if (view.powers.peek) {
+    const rival = options.find((o) => o.action.zone !== best.action.zone || o.action.pick !== best.action.pick);
+    if ((rival && best.value - rival.value < PEEK_GAP) || view.turn === view.turns - 2) return { peek: true };
+  }
+  return best.action;
 }
 
-function house(view, { variant }) {
-  const s = solverFor(variant);
-  const left = view.turns - view.turn; // rolls still to place, including this one
-  if (left > HOUSE.endgame) return s.pick(view.board, view.roll);
-  const r = s.table.indexOf(view.roll);
-  const myMask = maskOf(view.board);
-  const oppMask = maskOf(view.oppBoard);
-  const oz = s.choice[oppMask * s.table.prob.length + r];
-  const diff = view.score - view.oppScore - s.pts[oz][r];
-  let best = -1, bestZ = -1, bestEV = -1;
-  for (const z of openZones(view.board)) {
-    const w = winChance(s, myMask ^ (1 << z), oppMask ^ (1 << oz), diff + s.pts[z][r], left - 1);
-    const e = s.value(view.board, view.roll, z);
-    // Equal win chance → fall back on expected score.
-    if (w > best + 1e-9 || (w > best - 1e-9 && e > bestEV)) { best = w; bestZ = z; bestEV = e; }
-  }
-  return bestZ;
-}
-
-// choose(view, ctx) → zone index.  ctx = { variant, rand }
+// choose(view, ctx) → action.  ctx = { variant, table, rand, solver }
+// `solver` is only needed by bots with `needsSolver`.
 export const BOTS = [
   { id: 'tourist', name: 'Tourist', tier: 1, blurb: 'Drops dice wherever there is room.', choose: tourist },
   { id: 'regular', name: 'Regular', tier: 2, blurb: 'Always takes the biggest payout on the table right now.', choose: regular },
   { id: 'grinder', name: 'Grinder', tier: 3, blurb: 'Weighs each payout against what the zone usually earns.', choose: grinder },
-  { id: 'shark', name: 'Shark', tier: 4, blurb: 'Plays the exact odds on every roll.', choose: shark },
-  { id: 'house', name: 'The House', tier: 5, blurb: 'Plays the odds, then plays you: sits on a lead, gambles when behind.', choose: house },
+  { id: 'shark', name: 'Shark', tier: 4, blurb: 'Plays the exact odds on every roll.', choose: shark, needsSolver: true },
+  { id: 'house', name: 'The House', tier: 5, blurb: 'Plays the odds, holds rolls back and looks ahead.', choose: house, needsSolver: true },
 ];
 
 export const getBot = (id) => BOTS.find((b) => b.id === id) || BOTS[0];

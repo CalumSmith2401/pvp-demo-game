@@ -83,14 +83,17 @@ button.quiet:hover { color: var(--white); text-decoration: underline; }
 .controls { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
 
 /* ---- menu ---- */
+/* Fills the viewport exactly: the dice take whatever height is left over, and the
+   title scales with the shorter of the screen's width and height. */
 #menu {
   max-width: 430px;
   margin: 0 auto;
-  min-height: calc(100dvh - 68px);
+  height: calc(100dvh - 68px);
+  min-height: 420px;
   display: flex;
   flex-direction: column;
 }
-.hero-dice { position: relative; height: clamp(190px, 34dvh, 280px); margin: 12px 0 8px; }
+.hero-dice { position: relative; flex: 1 1 0; min-height: 90px; max-height: 280px; aspect-ratio: 39 / 28; max-width: 100%; align-self: center; margin: 4px 0 8px; }
 .die { position: absolute; filter: drop-shadow(0 10px 0 var(--shadow)); animation: bob 4.2s ease-in-out infinite; }
 .die-six  { left: 4%;  top: 34%; width: 32%; --tilt: -14deg; }
 .die-one  { left: 31%; top: 0;   width: 39%; --tilt: 9deg;  animation-delay: -1.4s; }
@@ -100,14 +103,18 @@ button.quiet:hover { color: var(--white); text-decoration: underline; }
   50%      { transform: translateY(-9px) rotate(calc(var(--tilt) + 3deg)); }
 }
 #title {
-  font-size: clamp(4.2rem, 23vw, 5.6rem);
+  font-size: clamp(3rem, min(23vw, 12.5dvh), 5.6rem);
   line-height: 0.88;
   letter-spacing: -1px;
   text-shadow: 0 6px 0 var(--shadow);
 }
-.tagline { margin: 14px 0 0; text-wrap: balance; font-size: 1.2rem; font-weight: 800; line-height: 1.3; color: var(--soft); }
-.menu-actions { margin-top: auto; padding-top: 28px; display: flex; flex-direction: column; gap: 18px; }
+.tagline { margin: 14px 0 0; text-wrap: balance; font-size: clamp(1rem, 2.6dvh, 1.2rem); font-weight: 800; line-height: 1.3; color: var(--soft); }
+.menu-actions { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 16px; }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-height: 700px) {
+  button.primary.big { min-height: 68px; font-size: 2.1rem; }
+  #menu .outline { min-height: 52px; }
+}
 
 /* ---- setup ---- */
 #setup { max-width: 560px; margin: 0 auto; }
@@ -154,26 +161,64 @@ dialog ol { margin: 0 0 22px; padding-left: 1.3em; }
 dialog li { margin-bottom: 9px; }
 dialog li::marker { font-family: var(--display); color: var(--blue); }
 dialog p { margin: 0 0 22px; }
+dialog h3 { font-family: var(--display); font-weight: 400; font-size: 1.2rem; color: var(--blue); margin: 0 0 8px; }
+dialog ul { margin: 0 0 16px; padding-left: 1.2em; }
+dialog .aside { font-size: 0.95rem; color: #3A4A8C; }
+#howto-dialog { width: min(94vw, 560px); max-height: 90dvh; overflow-y: auto; }
 dialog form { display: flex; justify-content: center; }
 
-/* ---- the table ---- */
-/* Phaser writes inline pixel sizes onto the canvas; these keep it fluid and inside
-   the viewport. aspect-ratio is set from js/table.js for the active layout. */
+/* ---- the play screen ---- */
+/* It fills the viewport exactly and never scrolls: the HUD takes what it needs at
+   the bottom and the table scales to fit the space left above it. */
+body.playing { overflow: hidden; }
+body.playing #app {
+  height: 100dvh;
+  max-width: none;
+  padding: 10px 10px calc(10px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+}
+#play { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+/* room around the canvas for its frame and hard shadow */
+.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4px 4px 16px; }
+
+/* Phaser writes inline pixel sizes onto the canvas; these override them so it
+   scales to the stage. aspect-ratio is set from js/table.js for the active layout. */
 #table {
   display: block;
-  margin: 0 auto;
   width: auto !important;
   height: auto !important;
   max-width: min(100%, 720px);
-  max-height: calc(100dvh - 104px);
+  max-height: 100%;
   border-radius: 22px;
   box-shadow: 0 0 0 4px var(--white), 0 12px 0 4px var(--shadow);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
 }
-#table[data-layout="portrait"] { max-width: min(100%, 420px); }
-#play .controls { margin-top: 28px; }
+#table[data-layout="portrait"] { max-width: min(100%, 420px); border-radius: 18px; }
+
+/* ---- the HUD under the table: power-ups, streak, sweeps ---- */
+#hud { width: 100%; max-width: 720px; margin: 0 auto; display: flex; flex-direction: column; gap: 8px; }
+#powers { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.power {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 50px; padding: 6px;
+  background: var(--white); color: var(--ink);
+  border-radius: 16px;
+  box-shadow: 0 5px 0 var(--shadow);
+  font-size: 1rem;
+}
+.power svg { width: 22px; height: 22px; flex: none; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+.power[aria-pressed="true"] { background: var(--yellow); box-shadow: 0 5px 0 var(--yellow-deep); }
+.power:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--shadow); }
+.power:disabled { cursor: default; opacity: 0.55; }
+.power.used { background: var(--blue-deep); color: var(--soft); box-shadow: none; opacity: 0.8; }
+.hud-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+#facts { flex: 1; display: flex; flex-wrap: wrap; gap: 2px 14px; color: var(--soft); font-size: 0.9rem; font-weight: 800; }
+#facts .good { color: var(--yellow); }
+#facts .lost { opacity: 0.6; text-decoration: line-through; }
+button.small { min-height: 44px; padding: 6px 14px; font-size: 0.9rem; border-radius: 14px; flex: none; }
 
 /* ---- result ---- */
 #end { max-width: 620px; margin: 0 auto; }
@@ -202,15 +247,27 @@ table.log .flag { font-family: var(--text); font-size: 0.8rem; font-weight: 800;
   font-weight: 800; font-size: 0.88rem; line-height: 1;
 }
 .dice b.red { background: var(--red); }
+.dice b.gold { background: var(--yellow); color: var(--ink); }
+table.log small { display: block; font-size: 0.74rem; font-weight: 800; color: #5B6AA8; line-height: 1.2; }
+table.log small.hot { display: inline; margin-left: 6px; color: #D9661A; font-family: var(--text); }
+table.log tr.sweep td { background: #F4F7FF; }
 .audit { color: var(--soft); font-size: 0.92rem; margin: 18px 0 0; }
 
 @media (max-width: 520px) {
   #app { padding: 14px 14px 36px; }
-  #menu { min-height: calc(100dvh - 50px); }
+  #menu { height: calc(100dvh - 50px); }
   .panel { padding: 6px 8px 10px; }
   table.log th, table.log td { padding: 6px 3px; }
   .dice { margin-right: 4px; }
-  #table { max-height: calc(100dvh - 96px); }
+  body.playing #app { padding: 6px 6px calc(6px + env(safe-area-inset-bottom)); }
+  #play { gap: 6px; }
+  .stage { padding: 4px 4px 14px; }
+  #powers { gap: 6px; }
+  .power { gap: 5px; font-size: 0.85rem; min-height: 46px; border-radius: 13px; }
+  .power svg { width: 18px; height: 18px; }
+  #facts { font-size: 0.8rem; gap: 0 10px; }
+  .hud-row { min-height: 40px; }
+  button.small { min-height: 40px; padding: 4px 10px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
