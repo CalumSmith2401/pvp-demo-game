@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dice game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <h1 id="title"></h1>
+    </header>
+
+    <!-- MENU -->
+    <section id="menu" class="screen">
+      <p class="pitch">
+        You and your rival are dealt the same eight rolls, one at a time. Put each roll in one of
+        your eight zones. It stays there. When the table is full, every zone pays out and the
+        higher total wins.
+      </p>
+      <h2>Pick a rival</h2>
+      <div id="bot-list" class="options"></div>
+      <h2>Pick a table</h2>
+      <div id="variant-list" class="options"></div>
+      <button id="start-btn" class="primary">Start match</button>
+      <details class="howto">
+        <summary>How a match works</summary>
+        <ul>
+          <li>Three dice are rolled. Both players see the same roll.</li>
+          <li>Tap an empty zone to place the roll there, or drag the dice onto it. You can't move it afterwards.</li>
+          <li>Each zone pays by its own rule, printed on the zone. The number in its corner is what this roll would score there.</li>
+          <li>Your rival's choice stays hidden until you have both placed. Then you see where their dice went.</li>
+          <li>You have <span id="turn-seconds"></span> seconds per roll. Run out and the roll goes into your weakest open zone.</li>
+          <li>After eight rolls the zones are scored one by one. Level totals go to whoever won more zones.</li>
+        </ul>
+      </details>
+    </section>
+
+    <!-- PLAY -->
+    <section id="play" class="screen hidden">
+      <canvas id="table" width="720" height="640" tabindex="0" aria-label="Dice table"></canvas>
+      <p id="live" class="sr-only" aria-live="polite"></p>
+      <div class="controls">
+        <button id="skip-btn" class="hidden">Skip to the result</button>
+        <button id="quit-btn" class="quiet">Leave match</button>
+      </div>
+    </section>
+
+    <!-- END -->
+    <section id="end" class="screen hidden">
+      <div id="result" class="result"></div>
+      <div id="log"></div>
+      <p id="audit" class="audit"></p>
+      <div class="controls">
+        <button id="rematch-btn" class="primary">Play again</button>
+        <button id="menu-btn">Change rival or table</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- No build step: bare imports resolve to pinned CDN builds. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "phaser": "https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.esm.min.js"
+      }
+    }
+  </script>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
