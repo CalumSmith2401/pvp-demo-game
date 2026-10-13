@@ -4,7 +4,7 @@ A collection of zero-dependency browser games.
 
 | Game | Description |
 |---|---|
-| [Dice Draft](games/dice-draft/) | You and a rival get the same 8 rolls of three dice. Place each one in a bet zone for keeps; best table wins. |
+| [Loaded Dice](games/dice-draft/) | You and a rival get the same 8 rolls of three dice. Place each one in a bet zone for keeps; best table wins. |
 | [Spell Draft Duel](games/spell-draft-duel/) | Draft the same 12 spells as an AI opponent, then duel. Placement is everything. |
 
 ## Run

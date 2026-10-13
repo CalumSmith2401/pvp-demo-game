@@ -3,9 +3,14 @@
 // the named variants. Rebalancing or rotating a season is a data change in this
 // file — nothing else hardcodes a point value.
 
-export const GAME_NAME = 'Dice Draft'; // working title; the only place it is spelled out
+export const GAME_NAME = 'Loaded Dice'; // the only place the code spells it out
 
-export const TURN_SECONDS = 20;        // per-roll placement timer
+// One clock for the whole match, per player. It only runs while that player has a
+// decision to make (dice on the table, nothing locked in), so animations and the
+// rival's thinking time are free. When it runs out, every turn still to come is
+// placed automatically.
+export const MATCH_SECONDS = 120;
+export const CLOCK_WARNING_SECONDS = 15; // the tray starts pulsing below this
 // Equal totals: the player who won more individual zones takes it. Still a draw
 // if that is level too.
 export const TIEBREAK_ZONES_WON = true;
@@ -107,6 +112,25 @@ const RULES = {
 };
 const setWord = (n) => (n === 2 ? 'double' : n === 3 ? 'triple' : 'set');
 
+// How each rule is drawn on its zone: either the dice that show it (0 = any die)
+// or a short phrase, plus what it pays in as few characters as possible. The longer
+// `rule` / `hint` strings above are for How to play and the reports.
+const fill = (n, faces) => Array.from({ length: n }, (_, i) => faces[i] ?? 0);
+const PICTURES = {
+  low:      { picture: (p, n) => ({ chip: `Total ${n + 1} to ${Math.ceil(3.5 * n) - 1}` }), pays: (p) => `${p.step} a pip` },
+  high:     { picture: (p, n) => ({ chip: `Total ${Math.floor(3.5 * n) + 1} to ${6 * n - 1}` }), pays: (p) => `${p.step} a pip` },
+  set:      { picture: (p, n) => ({ dice: fill(n, Array(n).fill(5)) }), pays: (p) => `${p.points}` },
+  pair:     { picture: (p, n) => ({ dice: fill(n, [3, 3]) }), pays: (p) => `${p.points}` },
+  run:      { picture: (p, n) => ({ dice: fill(n, [2, 3, 4, 5, 6]) }), pays: (p) => `${p.points}` },
+  face:     { picture: (p, n) => ({ dice: fill(n, [p.face]) }), pays: (p) => `${p.first} each` },
+  parity:   { picture: (p, n) => ({ dice: fill(n, p.even ? [2, 4, 6] : [1, 3, 5]) }), pays: (p) => `${p.per} each` },
+  exact:    { picture: (p) => ({ chip: `Total ${p.totals.join(' or ')}` }), pays: (p) => `${p.points}` },
+  distinct: { picture: () => ({ chip: 'All different' }), pays: (p) => `${p.points}` },
+  pairOf:   { picture: (p) => ({ chip: `Pair, ${Math.min(...p.faces)}s or up` }), pays: (p) => `${p.points}` },
+  pairSum:  { picture: (p) => ({ chip: `Two add to ${p.target}` }), pays: (p) => `${p.points}` },
+  total:    { picture: () => ({ chip: 'Any roll' }), pays: (p) => (p.mult === 1 ? 'its total' : `total × ${p.mult}`) },
+};
+
 // ---------- the zone pool ----------
 // Every zone the game knows. A match deals `deal` of them (or uses a fixed list).
 // `celebrate` ranks how big a hit in that zone should feel (see table.js); it has
@@ -191,6 +215,8 @@ export function buildVariant(id = DEFAULT_VARIANT, overrides = {}) {
       rule: rule.rule(pay, v.dice),
       hint: rule.hint(pay, v.dice),
       max: rule.max(pay, v.dice),
+      picture: PICTURES[z.kind].picture(pay, v.dice),
+      pays: PICTURES[z.kind].pays(pay),
       score: (dice) => rule.score(dice, pay),
     };
   });

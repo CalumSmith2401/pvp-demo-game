@@ -1,5 +1,5 @@
-// Phaser 3 table. Renders the whole play surface — the rival's board strip, the
-// dice tray, your eight zones — and animates the rolls, each placement, the
+// Phaser 3 table. Renders the whole play surface — the dealer and the scores,
+// your eight zones, the dice tray — and animates the rolls, each placement, the
 // power-ups and the zone-by-zone reveal. It knows nothing about the rules: the
 // controller feeds it rolls, scored placements and the finished reveal log, and it
 // reports what the player touched (onSelect / onDie / onZone). Deciding what a
@@ -32,27 +32,25 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const lerp = (a, b, t) => a + (b - a) * t;
 
 // ---------- layout ----------
-// Two arrangements of the same parts: 4×2 zones on wide screens, 2×4 on phones.
+// Top to bottom: the header (scores either side of the dealer), a line for the turn
+// and what the dealer says, the zones, and the tray with this turn's rolls down by
+// the player's thumbs. Two arrangements of the same parts: 4×2 zones on wide
+// screens, 2×4 on phones. The height follows from the parts.
 export function layoutFor(portrait, zoneCount = 8, offers = 1) {
   const W = portrait ? 420 : 720;
-  const H = portrait ? 750 : 640;
   const m = portrait ? 12 : 20;
-  const rail = { x: m, y: portrait ? 8 : 12, w: W - 2 * m, h: portrait ? 46 : 54 };
-  const sGap = portrait ? 4 : 6;
-  const sW = (W - 2 * m - (zoneCount - 1) * sGap) / zoneCount;
-  const sY = rail.y + rail.h + 6;
-  const sH = portrait ? 58 : 72;
-  const tray = { x: m, y: sY + sH + 8, w: W - 2 * m, h: portrait ? 140 : 160 };
+  const head = { x: m, y: 8, w: W - 2 * m, h: portrait ? 108 : 100 };
+  const pill = { x: m, y: head.y + head.h + 6, w: W - 2 * m, h: 26 };
   const cols = portrait ? 2 : 4;
   const rows = Math.ceil(zoneCount / cols);
   const gap = 8;
-  const gY = tray.y + tray.h + 8;
+  const gY = pill.y + pill.h + 8;
   const zW = (W - 2 * m - (cols - 1) * gap) / cols;
-  const zH = (H - gY - m - (rows - 1) * gap) / rows;
+  const zH = portrait ? 84 : 92;
+  const tray = { x: m, y: gY + rows * zH + (rows - 1) * gap + 10, w: W - 2 * m, h: offers > 1 ? 116 : 104 };
   return {
-    W, H, m, portrait, rail, tray,
-    die: offers > 1 ? (portrait ? 46 : 56) : (portrait ? 64 : 76), // two rolls share the tray
-    strip: (i) => ({ x: m + i * (sW + sGap), y: sY, w: sW, h: sH }),
+    W, H: tray.y + tray.h + m, m, portrait, head, pill, tray,
+    die: offers > 1 ? (portrait ? 46 : 54) : (portrait ? 60 : 64), // two rolls share the tray
     zone: (i) => ({ x: m + (i % cols) * (zW + gap), y: gY + Math.floor(i / cols) * (zH + gap), w: zW, h: zH }),
   };
 }
@@ -179,6 +177,8 @@ export class Table {
     // Layout of the pre-rendered dice sheets. Without it the table still works, with
     // painted dice that simply appear.
     this.diceMeta = await fetch('assets/dice-roll.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
+    // Bones the dealer's animation clips. Without it the header simply has no dealer.
+    this.bonesMeta = await fetch('assets/mascot/bones.json').then((r) => (r.ok ? r.json() : null)).catch(() => null);
     await new Promise((resolve) => {
       this.game = new Phaser.Game({
         type: hasWebGL() ? Phaser.WEBGL : Phaser.CANVAS, // AUTO isn't allowed with a supplied canvas
@@ -256,7 +256,7 @@ export class Table {
   lockMine(group, landed, auto) { this.scene?.lockMine(group, landed, auto); }
   rivalLocked() { this.scene?.rivalLocked(); }
   revealRival(landed, holding) { this.scene?.revealRival(landed, holding); }
-  setTimer(frac) { this.scene?.setTimer(frac); }
+  setTimer(frac, opts) { this.scene?.setTimer(frac, opts); }
   reveal(result, done) { this.scene?.reveal(result, done); }
   skip() { this.scene?.setSpeed(8); }
 }
@@ -276,6 +276,9 @@ class TableScene extends Phaser.Scene {
     sheet('roll', meta.roll.file, meta.roll.cell);
     this.load.image('faces', `assets/${meta.faces.file}`);
     if (meta.flip) sheet('flip', meta.flip.file, meta.flip.cell);
+    // The dealer: one pre-rendered sheet per clip (idle, throw, cheer, streak, wince, celebrate, sulk).
+    const bones = this.sys.settings.data.table.bonesMeta;
+    if (bones) for (const [name, clip] of Object.entries(bones.clips)) sheet(`bones-${name}`, `mascot/${clip.file}`, bones.cell);
     if (meta.gold) { // the golden die: the same sheets, rendered in gold
       sheet('roll-gold', meta.gold.roll, meta.roll.cell);
       this.load.image('faces-gold', `assets/${meta.gold.faces}`);
@@ -303,13 +306,12 @@ class TableScene extends Phaser.Scene {
     this.drag = null;
     this.mine = this.zones.map(() => null); // what sits in each of my zones
     this.myTotal = 0;
-    this.timerFrac = null;
+    this.urgent = false;   // the match clock is nearly out
     this.settleUntil = 0;
     this.setSpeed(1);
 
     this.add.image(0, 0, `felt-${L.W}`).setOrigin(0).setScale(1 / this.dpr);
-    this._buildRail();
-    this.strip = this.zones.map((z, i) => this._buildStripCell(z, i));
+    this._buildHeader();
     this.cells = this.zones.map((z, i) => this._buildZone(z, i));
     this._buildTray();
     this.flash = this.add.rectangle(L.W / 2, L.H / 2, L.W, L.H, 0xffffff).setAlpha(0).setDepth(50);
@@ -351,6 +353,25 @@ class TableScene extends Phaser.Scene {
       paintDie(ctx, px, value);
       if (gold) { ctx.globalCompositeOperation = 'multiply'; ctx.fillStyle = C.gold; ctx.fillRect(0, 0, px, px); ctx.globalCompositeOperation = 'destination-in'; paintDie(ctx, px, value); }
     }
+    this.textures.addCanvas(key, c);
+    return key;
+  }
+
+  // A dashed outline the size of a die: "any die" in a zone's picture of its rule.
+  _anyDie(size) {
+    const px = Math.max(1, Math.round(size * this.dpr));
+    const key = `any@${px}`;
+    if (this.textures.exists(key)) return key;
+    const c = document.createElement('canvas');
+    c.width = c.height = px;
+    const ctx = c.getContext('2d');
+    ctx.strokeStyle = C.line;
+    ctx.globalAlpha = 0.75;
+    ctx.lineWidth = Math.max(1.5, px * 0.07);
+    ctx.setLineDash([px * 0.16, px * 0.12]);
+    ctx.beginPath();
+    ctx.roundRect(px * 0.08, px * 0.08, px * 0.84, px * 0.84, px * 0.2);
+    ctx.stroke();
     this.textures.addCanvas(key, c);
     return key;
   }
@@ -447,8 +468,8 @@ class TableScene extends Phaser.Scene {
   }
 
   _callout(str, level) {
-    const { tray } = this.L;
-    const t = this._big(tray.x + tray.w / 2, tray.y + tray.h / 2, str, level >= 3 ? 64 : 46, C.gold, { origin: [0.5, 0.5], depth: 45 })
+    const { W, pill, tray } = this.L;
+    const t = this._big(W / 2, (pill.y + tray.y) / 2, str, level >= 3 ? 64 : 46, C.gold, { origin: [0.5, 0.5], depth: 45 })
       .setStroke(C.feltWell, 8).setAngle(-6);
     this._pop(t, 2.4, 300);
     this.tweens.add({ targets: t, angle: 4, duration: 900, ease: 'Sine.easeInOut' });
@@ -482,29 +503,94 @@ class TableScene extends Phaser.Scene {
   }
 
   // ---------- construction ----------
-  _buildRail() {
-    const { rail, W, portrait } = this.L;
-    const big = portrait ? 30 : 36;
-    const cy = rail.y + rail.h / 2;
-    this.youName = this._text(rail.x + 4, cy, this.opts.you, 15, C.white, { weight: '700', origin: [0, 0.5] });
-    this.youTotal = this._big(rail.x + 12 + this.youName.width, cy, '0', big, C.gold, { origin: [0, 0.5] });
-    this.rivalTotal = this._big(rail.x + rail.w - 4, cy, '', big, C.rival, { origin: [1, 0.5] });
-    this.rivalName = this._text(rail.x + rail.w - 4, cy - (portrait ? 8 : 9), this.opts.rival, 15, C.white, { weight: '700', origin: [1, 0.5] });
-    this.rivalStatus = this._text(rail.x + rail.w - 4, cy + (portrait ? 9 : 10), '', 13, C.line, { origin: [1, 0.5] });
-    this.counter = this._text(W / 2, cy - 9, '', 14, C.white, { weight: '700', origin: [0.5, 0.5] });
-    this.pips = this.add.graphics().setDepth(2);
-    this._drawPips(-1);
+  // The head of the table: your score, the dealer, your rival's score.
+  _buildHeader() {
+    const { head, W, portrait } = this.L;
+    const big = portrait ? 32 : 36;
+    const mascotW = portrait ? 104 : 100;
+    const cardH = portrait ? 56 : 54;
+    const cardW = (head.w - mascotW) / 2 - 4;
+    const cy = head.y + head.h - cardH / 2;
+    const g = this.add.graphics().setDepth(1);
+    for (const x of [head.x, head.x + head.w - cardW]) {
+      g.fillStyle(hex(C.depth), 0.9).fillRoundedRect(x, cy - cardH / 2 + 4, cardW, cardH, 14);
+      g.fillStyle(hex(C.feltDeep), 1).fillRoundedRect(x, cy - cardH / 2, cardW, cardH, 14);
+    }
+    this.youName = this._text(head.x + 12, cy, this.opts.you, 14, C.white, { weight: '700', origin: [0, 0.5] });
+    this.youTotal = this._big(head.x + cardW - 12, cy, '0', big, C.gold, { origin: [1, 0.5] });
+    const rx = head.x + head.w - cardW;
+    this.rivalTotal = this._big(rx + 12, cy, '', big, C.rival, { origin: [0, 0.5] });
+    this.rivalName = this._text(rx + cardW - 12, cy - 8, this.opts.rival, 14, C.white, { weight: '700', origin: [1, 0.5] });
+    this.rivalStatus = this._text(rx + cardW - 12, cy + 9, '', 12, C.line, { origin: [1, 0.5] });
+
+    // The dealer. Reacts to what happens on the table (see _react). Every clip is
+    // framed identically and shares one pivot (the centre of his head), so the
+    // sprite is anchored on that and never shifts between clips.
+    const bones = this.table.bonesMeta;
+    this.bones = bones && this.textures.exists('bones-idle') ? bones : null;
+    this.mascot = null;
+    if (this.bones) {
+      const box = head.h + 16;              // the square he was designed to sit in
+      const size = box * 1.0698;            // cell size that puts his idle head at the stills' size
+      this.mascot = this.add.sprite(W / 2, head.y + head.h / 2 + box * 0.0186, 'bones-idle', 0)
+        .setOrigin(bones.pivot[0] / bones.cell, bones.pivot[1] / bones.cell).setDisplaySize(size, size).setDepth(4);
+      this.mascotScale = this.mascot.scaleX;
+      this.mascotBase = 'idle';             // the loop he returns to: idle, or streak while the player is on one
+      this._clip('idle');
+    }
+
+    // Under the header: the turn on the left, what the dealer has to say in the middle.
+    const { pill } = this.L;
+    this.counter = this._text(pill.x + 2, pill.y + pill.h / 2, '', 13, C.white, { weight: '700', origin: [0, 0.5] });
+    this.clockText = this._big(pill.x + pill.w - 2, pill.y + pill.h / 2, '', portrait ? 15 : 16, C.white, { origin: [1, 0.5] });
+    this.pillBg = this.add.graphics().setDepth(2);
+    this.pillText = this._big(W / 2, pill.y + pill.h / 2, '', portrait ? 14 : 15, C.white, { origin: [0.5, 0.5], depth: 3 });
   }
 
-  _drawPips(turn) {
-    const { W, rail } = this.L;
-    const n = this.variant.rolls, gap = 13, y = rail.y + rail.h / 2 + 10;
-    this.pips.clear();
-    for (let i = 0; i < n; i++) {
-      const x = W / 2 + (i - (n - 1) / 2) * gap;
-      this.pips.fillStyle(hex(i < turn ? C.line : i === turn ? C.gold : '#000000'), i <= turn ? 1 : 0.35);
-      this.pips.fillCircle(x, y, i === turn ? 4.5 : 3);
+  // The line under the dealer. Quiet for prompts; loud (yellow) for reactions.
+  _say(msg, loud = false) {
+    const { pill, W } = this.L;
+    this.pillText.setText(msg).setColor(loud ? C.ink : C.white).setScale(1);
+    this.pillBg.clear();
+    if (!msg) return;
+    const w = this.pillText.width + 26;
+    this.pillBg.fillStyle(hex(loud ? C.gold : C.feltDeep), 1).fillRoundedRect(W / 2 - w / 2, pill.y, w, pill.h, pill.h / 2);
+    if (loud) this._punch(this.pillText, 1.2, 110);
+  }
+
+  // Play one of the dealer's clips on the scene clock. Loops repeat; a one-shot
+  // goes back to his base loop when it ends, unless it holds its last frame (sulk).
+  _clip(name) {
+    const m = this.mascot;
+    const clip = this.bones?.clips[name];
+    if (!m || !clip) return;
+    this.mascotTween?.remove();
+    m.setTexture(`bones-${name}`, 0);
+    if (this.calm) { if (clip.holds) m.setFrame(clip.frames - 1); return; } // reduced motion: a still pose
+    this.mascotTween = this.tweens.addCounter({
+      from: 0, to: clip.frames, duration: clip.durationMs, repeat: clip.loop ? -1 : 0,
+      onUpdate: (tw) => m.setFrame(Math.min(clip.frames - 1, Math.floor(tw.getValue()))),
+      onComplete: () => { if (!clip.holds) this._clip(this.mascotBase); },
+    });
+  }
+
+  // The dealer reacts: 'throw', 'cheer', 'wince', 'celebrate' or 'sulk' play once;
+  // 'idle' and 'streak' set the loop he rests in (and switch to it if he is resting).
+  _react(pose) {
+    if (!this.mascot) return;
+    if (pose === 'idle' || pose === 'streak') {
+      const resting = this.bones.clips[this.mascot.texture.key.slice(6)]?.loop;
+      this.mascotBase = pose;
+      if (resting) this._clip(pose);
+      return;
     }
+    this._clip(pose);
+  }
+
+  // How long after the throw clip starts the dice should leave his paw.
+  _releaseMs() {
+    const t = this.bones?.clips.throw;
+    return t && !this.calm ? (t.releaseFrame / t.frames) * t.durationMs : 0;
   }
 
   rivalLocked() {
@@ -522,61 +608,48 @@ class TableScene extends Phaser.Scene {
     dice.forEach((d, k) => d.setTexture(this._face(roll.dice[k], size, roll.gold === k)).setVisible(true));
   }
 
-  _buildStripCell(zone, i) {
-    const r = this.L.strip(i);
-    const n = this.variant.dice;
-    const hot = this.table_.hot === i;
-    const g = this.add.graphics().setDepth(1);
-    const ds = Math.min(18, (r.w - 8 - (n - 1) * 2) / n);
-    const name = this._text(r.x + r.w / 2, r.y + 6, zone.name, this.L.portrait ? 11 : 13, hot ? C.hot : C.white, { weight: '700', origin: [0.5, 0] }).setAlpha(hot ? 1 : 0.8);
-    const dy = r.y + r.h - ds / 2 - (this.L.portrait ? 9 : 14);
-    const dice = this._minis(r.x + r.w / 2, dy, ds, 2);
-    // a Double or the hot zone shows as ×2 / ×3 over the rival's dice
-    const mult = this._big(r.x + r.w - 3, r.y + r.h - 2, '', this.L.portrait ? 11 : 13, C.gold, { origin: [1, 1], depth: 4 }).setStroke(C.feltWell, 4);
-    const cell = { r, g, name, dice, ds, mult, roll: null, hot: false };
-    this._drawStripCell(cell);
-    return cell;
-  }
-
-  _drawStripCell(cell) {
-    const { r, g } = cell;
-    g.clear();
-    g.fillStyle(hex(C.feltWell), cell.roll ? 0.75 : 0.3);
-    g.fillRoundedRect(r.x, r.y, r.w, r.h, 6);
-    g.lineStyle(cell.hot ? 2.5 : 1, hex(cell.hot ? C.rival : C.line), cell.hot ? 1 : 0.45);
-    g.strokeRoundedRect(r.x, r.y, r.w, r.h, 6);
-  }
-
   // A zone is a container centred on its box, so the whole thing can hop, press
   // and punch as one piece. Children are positioned relative to that centre.
+  // While it is open it shows its rule as a picture (dice, or a short phrase) and
+  // what it pays; once filled, the dice that landed there and what they scored.
   _buildZone(zone, i) {
     const r = this.L.zone(i);
     const p = this.L.portrait;
-    const pad = 12;
+    const pad = 11;
     const x0 = -r.w / 2, y0 = -r.h / 2;
     const isHot = this.table_.hot === i;
     const g = this.add.graphics();
-    const name = this._big(x0 + pad, y0 + (p ? 7 : 10), zone.name, p ? 21 : 22, C.white);
-    const num = this._text(-x0 - pad, y0 + (p ? 10 : 13), String(i + 1), 13, C.line, { weight: '700', origin: [1, 0] }).setAlpha(0.7);
-    // the hot zone wears its multiplier right after its name
-    const badge = this._big(name.x + name.width + 7, name.y + (p ? 4 : 5), isHot ? '×2' : '', 17, C.hot);
-    const rule = this._text(x0 + pad, y0 + (p ? 35 : 42), zone.rule, 14, C.white).setAlpha(0.82);
-    const hint = this._text(x0 + pad, y0 + (p ? 53 : 61), zone.hint, 14, C.gold, { weight: '700' });
-    const ds = p ? 24 : 26;
-    const baseY = -y0 - pad - ds / 2 + 2;
-    const dice = this._minis(x0 + pad + ds * 1.5 + 3, baseY, ds, 3);
-    // In the corner: the points banked there, and above them what boosted them.
-    const points = this._big(-x0 - pad, baseY, '', p ? 30 : 34, C.white, { origin: [1, 0.5] });
-    const tags = this._text(-x0 - pad, baseY - (p ? 22 : 25), '', 12, C.line, { weight: '700', origin: [1, 1] });
+    const name = this._big(x0 + pad, y0 + 6, zone.name, p ? 18 : 19, C.white);
+    const badge = this._big(name.x + name.width + 6, name.y + 3, isHot ? '×2' : '', 15, C.hot); // the hot zone's multiplier
+    const num = this._text(-x0 - pad, y0 + 9, String(i + 1), 12, C.line, { weight: '700', origin: [1, 0] }).setAlpha(0.7);
+    const tags = this._text(x0 + pad, y0 + (p ? 30 : 33), '', 11.5, C.line, { weight: '700' });
+    const ds = p ? 23 : 25;
+    const baseY = -y0 - pad - ds / 2 + 1;
+    const left = x0 + pad + ds * 1.5 + 3;
+    // the rule, drawn
+    const pic = zone.picture;
+    const picDice = pic.dice ? pic.dice.map((f, k) => this._die(f ? this._face(f, ds - 2) : this._anyDie(ds - 2), x0 + pad + (ds - 2) / 2 + k * (ds + 1), baseY, ds - 2)) : [];
+    const chip = pic.chip ? this._text(x0 + pad + 8, baseY, pic.chip, 13, C.white, { weight: '700', origin: [0, 0.5] }) : null;
+    const chipBg = this.add.graphics();
+    if (chip) chipBg.fillStyle(hex(C.feltWell), 1).fillRoundedRect(chip.x - 8, baseY - 12, chip.width + 16, 24, 9);
+    const numeric = /^\d+$/.test(zone.pays);
+    const pays = numeric
+      ? this._big(-x0 - pad, baseY, zone.pays, p ? 23 : 25, C.gold, { origin: [1, 0.5] })
+      : this._text(-x0 - pad, baseY, zone.pays, 13, C.gold, { weight: '700', origin: [1, 0.5] });
+    // what landed
+    const dice = this._minis(left, baseY, ds, 3);
+    const points = this._big(-x0 - pad, baseY, '', p ? 27 : 30, C.white, { origin: [1, 0.5] });
     const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
-    const c = this.add.container(cx, cy, [g, name, num, badge, rule, hint, ...dice, points, tags]).setDepth(1);
-    const cell = { zone, r, c, cx, cy, g, name, num, badge, rule, hint, dice, ds, points, tags, isHot, hot: false };
+    const picture = [chipBg, ...(chip ? [chip] : []), ...picDice, pays];
+    const c = this.add.container(cx, cy, [g, name, badge, num, tags, ...picture, ...dice, points]).setDepth(1);
+    const cell = { zone, r, c, cx, cy, g, name, badge, num, tags, picture, dice, ds, points, isHot, hot: false, rivalIn: false, dot: { x: -x0 - pad - 20, y: y0 + 16 } };
     this._drawZone(cell, i);
     return cell;
   }
 
   // Open zones stand proud on a hard shadow; a filled zone sits pressed in. The hot
-  // zone is ringed in orange; a zone lit for selection or the reveal in yellow.
+  // zone is ringed in orange; a zone lit for selection or the reveal in yellow. A
+  // coral dot by the number means the rival has placed there.
   _drawZone(cell, i) {
     const { r, g } = cell;
     const filled = !!this.mine[i];
@@ -586,31 +659,34 @@ class TableScene extends Phaser.Scene {
     const sink = filled && !cell.hot ? 3 : 0;
     g.clear();
     g.fillStyle(hex(C.depth), 0.9);
-    g.fillRoundedRect(x, y + 5, r.w, r.h, 10);
+    g.fillRoundedRect(x, y + 5, r.w, r.h, 12);
     g.fillStyle(hex(lit ? C.feltHi : filled ? C.feltWell : C.feltDeep), lit ? 1 : filled ? 0.92 : 0.85);
-    g.fillRoundedRect(x, y + sink, r.w, r.h, 10);
+    g.fillRoundedRect(x, y + sink, r.w, r.h, 12);
     const edge = lit ? C.gold : cell.isHot ? C.hot : C.line;
     g.lineStyle(lit ? 3 : cell.isHot ? 2.5 : 2, hex(edge), filled && !lit ? (cell.isHot ? 0.55 : 0.3) : lit ? 1 : 0.85);
-    g.strokeRoundedRect(x, y + sink, r.w, r.h, 10);
-    for (const t of [cell.name, cell.rule, cell.hint]) t.setAlpha(filled && !cell.hot ? 0.5 : t === cell.rule ? 0.82 : 1);
+    g.strokeRoundedRect(x, y + sink, r.w, r.h, 12);
+    if (cell.rivalIn) g.fillStyle(hex(C.rival), 1).fillCircle(cell.dot.x, cell.dot.y, 5.5);
+    cell.name.setAlpha(filled && !cell.hot ? 0.55 : 1);
+    for (const o of cell.picture) o.setVisible(!filled);
     if (!this.tweens.isTweening(cell.c)) cell.c.y = cell.cy - (open && this.hover === i ? 3 : 0);
   }
 
   _redrawZones() { this.cells.forEach((c, i) => this._drawZone(c, i)); }
 
-  // The tray holds one group of big dice per roll on offer, plus two small slots:
-  // the roll set aside with Hold (top left) and the rolls shown by Peek (top right).
+  // The tray, at the bottom by the player's thumbs, holds one group of big dice per
+  // roll on offer, plus two small slots in its top corners: the roll set aside with
+  // Hold (left) and the rolls shown by Peek (right).
   _buildTray() {
     const { tray, die, portrait } = this.L;
     const n = this.variant.dice;
     const offers = this.variant.offers;
     const snap = (v) => Math.round(v * this.dpr) / this.dpr; // a die parked on a half pixel is blurred
-    const cy = snap(tray.y + tray.h / 2 - (offers > 1 ? -3 : 12)); // two rolls sit lower, clear of the corner slots
-    const step = die + (offers > 1 ? 8 : 14);
+    const cy = snap(tray.y + tray.h / 2 + (offers > 1 ? 12 : 0));
+    const step = die + 8;
     this.groups = Array.from({ length: offers }, (_, gi) => {
       const cx = tray.x + tray.w * (offers > 1 ? (gi === 0 ? 0.27 : 0.73) : 0.5);
       const home = Array.from({ length: n }, (_, k) => ({ x: snap(cx + (k - (n - 1) / 2) * step), y: cy }));
-      const w = step * n + 6, h = die + 22;
+      const w = step * n + 6, h = die + 18;
       return {
         home, cx, box: { x: cx - w / 2, y: cy - h / 2 + 2, w, h },
         frame: this.add.graphics().setDepth(8),
@@ -623,27 +699,27 @@ class TableScene extends Phaser.Scene {
         offer: null, values: [], gone: true,
       };
     });
-    if (offers > 1) this.or = this._text(tray.x + tray.w / 2, cy, 'or', 15, C.line, { weight: '700', origin: [0.5, 0.5] }).setAlpha(0);
+    if (offers > 1) this.or = this._text(tray.x + tray.w / 2, cy, 'or', 14, C.line, { weight: '700', origin: [0.5, 0.5] }).setAlpha(0);
 
-    const ms = portrait ? 18 : 20; // small dice in the two corner slots
-    const slotW = n * (ms + 2) + 10;
-    const hx = tray.x + 12 + slotW / 2, sy = tray.y + 19 + ms / 2;
+    const ms = portrait ? 17 : 19; // small dice in the two corner slots
+    const slotW = n * (ms + 2) + 8;
+    const sy = tray.y + 9 + ms / 2;
+    const hx = tray.x + 50 + slotW / 2;
     this.heldSlot = {
-      box: { x: tray.x + 6, y: tray.y + 3, w: slotW + 12, h: ms + 22 },
-      label: this._text(hx, tray.y + 4, 'Held', 12, C.gold, { weight: '700', origin: [0.5, 0] }).setVisible(false),
+      box: { x: tray.x + 6, y: tray.y + 4, w: 50 + slotW + 4, h: ms + 10 },
+      label: this._text(tray.x + 14, sy, 'Held', 12, C.gold, { weight: '700', origin: [0, 0.5] }).setVisible(false),
       dice: this._minis(hx, sy, ms, 2, 12), size: ms, roll: null, frame: this.add.graphics().setDepth(8),
     };
-    const nx = tray.x + tray.w - 12 - (offers * slotW + (offers - 1) * 6) / 2;
+    const nx = tray.x + tray.w - 10 - (offers * slotW + (offers - 1) * 6) / 2;
     this.nextSlot = {
-      label: this._text(nx, tray.y + 4, 'Next', 12, C.line, { weight: '700', origin: [0.5, 0] }).setVisible(false),
+      label: this._text(nx - (offers * slotW + (offers - 1) * 6) / 2 - 8, sy, 'Next', 12, C.line, { weight: '700', origin: [1, 0.5] }).setVisible(false),
       rows: Array.from({ length: offers }, (_, gi) => this._minis(nx + (gi - (offers - 1) / 2) * (slotW + 6), sy, ms, 2, 12)), size: ms,
     };
-    this.status = this._text(tray.x + tray.w / 2, tray.y + tray.h - 22, '', 15, C.white, { origin: [0.5, 0.5] }).setAlpha(0.9);
     this.timer = this.add.graphics().setDepth(2);
     this.alarm = this.add.graphics().setDepth(2);
   }
 
-  // The table assembles itself: zones drop in one by one, the rival strip fades up.
+  // The table assembles itself: zones drop in one by one, the dealer pops up.
   _intro() {
     if (this.calm) return;
     this.cells.forEach((cell, i) => {
@@ -651,31 +727,32 @@ class TableScene extends Phaser.Scene {
       cell.c.y = cell.cy + 34;
       this.tweens.add({ targets: cell.c, y: cell.cy, alpha: 1, scale: 1, delay: 60 + i * 45, duration: 300, ease: 'Back.easeOut' });
     });
-    this.strip.forEach((cell, i) => {
-      for (const o of [cell.g, cell.name]) {
-        const a = o.alpha;
-        o.setAlpha(0);
-        this.tweens.add({ targets: o, alpha: a, delay: i * 35, duration: 220 });
-      }
-    });
+    if (this.mascot) {
+      this.mascot.setScale(0);
+      this.tweens.add({ targets: this.mascot, scale: this.mascotScale, delay: 120, duration: 320, ease: 'Back.easeOut' });
+    }
   }
 
-  setTimer(frac) {
-    this.timerFrac = frac;
+  // The match clock: a bar along the bottom of the tray and the time left beside
+  // the turn counter. `urgent` turns both red and (while it is the player's move)
+  // makes the tray pulse and the dice rattle. Pass null to hide it.
+  setTimer(frac, { label = '', urgent = false } = {}) {
     const { tray } = this.L;
     const w = tray.w - 28, x = tray.x + 14, y = tray.y + tray.h - 8;
+    this.urgent = frac != null && urgent;
     this.timer.clear();
+    this.clockText.setText(frac == null ? '' : label).setColor(this.urgent ? C.rival : C.white);
     if (frac == null) { this.alarm.clear(); return; }
     this.timer.fillStyle(0x000000, 0.35).fillRoundedRect(x, y, w, 4, 2);
-    this.timer.fillStyle(hex(frac < 0.25 ? C.red : C.gold), 1).fillRoundedRect(x, y, Math.max(4, w * frac), 4, 2);
+    this.timer.fillStyle(hex(this.urgent ? C.red : C.gold), 1).fillRoundedRect(x, y, Math.max(4, w * Math.max(0, Math.min(1, frac))), 4, 2);
   }
 
-  // Per-frame life: shadows track their dice, and the last quarter of the timer
-  // makes the tray pulse red and the dice rattle.
+  // Per-frame life: shadows track their dice, and when the match clock is nearly
+  // out the tray pulses red and the dice rattle.
   update() {
     const { die, tray } = this.L;
     const now = this.time.now;
-    const urgent = this.live && this.timerFrac != null && this.timerFrac < 0.25;
+    const urgent = this.live && this.urgent;
     const still = this.live && !this.calm && now > this.settleUntil;
     this.groups.forEach((grp, gi) => {
       grp.dice.forEach((d, k) => {
@@ -708,11 +785,11 @@ class TableScene extends Phaser.Scene {
     this.sel = null;
     this.flipMode = false;
     this.counter.setText(`Roll ${turn + 1} of ${this.variant.rolls}`);
-    this._punch(this.counter, 1.3, 130);
-    this._drawPips(turn);
+    this._punch(this.counter, 1.2, 130);
     this.rivalStatus.setText('Thinking…').setColor(C.line);
-    this.status.setText('');
-    this.setTimer(null);
+    this._say('');
+    this._react('throw');
+    const release = this._releaseMs(); // the dice leave on the frame his paw lets go
     this.showNext(null);
     const n = this.variant.dice;
     const thrown = !this.calm && !!this.meta;
@@ -728,11 +805,11 @@ class TableScene extends Phaser.Scene {
         d.setDisplaySize(die, die).setAlpha(1).setDepth(10).setAngle(0).setPosition(h.x, h.y)
           .setTexture(this._face(grp.values[k], die, grp.offer.gold === k));
         if (!thrown) { d.setVisible(true); return; }
-        this._throw(grp, k, flight, (gi * n + k) * 90);
+        this._throw(grp, k, flight, release + (gi * n + k) * 90);
       });
     });
     if (this.or) this.or.setAlpha(0);
-    const settled = flight + (thrown ? (offers.length * n - 1) * 90 + 220 : 0);
+    const settled = flight + (thrown ? release + (offers.length * n - 1) * 90 + 220 : 0);
     this._after(settled, () => {
       this.live = true;
       this.settleUntil = 0;
@@ -743,14 +820,13 @@ class TableScene extends Phaser.Scene {
     });
   }
 
-  // What the tray asks of the player right now.
+  // What the dealer asks of the player right now.
   _prompt() {
     if (!this.live) return;
-    const pick = this.variant.offers > 1;
-    this.status.setText(this.flipMode ? 'Tap the die you want to flip'
-      : this.sel == null && pick ? 'Pick a roll, then tap a zone'
-        : this.sel === 'held' ? 'Tap a zone for the roll you held'
-          : this.L.portrait || pick ? 'Tap a zone to place this roll' : 'Tap a zone to place this roll, or press its number');
+    this._say(this.flipMode ? 'Tap the die to flip'
+      : this.sel == null && this.variant.offers > 1 ? 'Pick a roll, then tap a zone'
+        : this.sel === 'held' ? 'Tap a zone for the held roll'
+          : 'Tap a zone to place it');
   }
 
   // One die, thrown in from the right. The tumble itself is a pre-rendered clip
@@ -763,8 +839,8 @@ class TableScene extends Phaser.Scene {
     const value = grp.values[k];
     const size = die * (cell / faceWidth); // the cell is bigger than the die face it holds
     // each die leaves the hand a beat after the last, on its own line
-    const from = { x: tray.x + tray.w + die, y: h.y + (k - (grp.dice.length - 1) / 2) * 30 + rnd(-10, 10) };
-    const apex = die * rnd(0.7, 0.95);
+    const from = { x: tray.x + tray.w + die, y: h.y + (k - (grp.dice.length - 1) / 2) * 22 + rnd(-8, 8) };
+    const apex = die * rnd(0.6, 0.85);
     const touchdowns = [0.42, 0.72, 0.9];
     let hits = 0;
     // height of the throw: a fall, then two smaller hops
@@ -815,7 +891,7 @@ class TableScene extends Phaser.Scene {
       const on = sel === gi;
       grp.frame.clear();
       if (grp.gone) return;
-      if (on) grp.frame.lineStyle(3, hex(C.gold), 1).strokeRoundedRect(box.x, box.y, box.w, box.h, 14);
+      if (on && this.variant.offers > 1) grp.frame.lineStyle(3, hex(C.gold), 1).strokeRoundedRect(box.x, box.y, box.w, box.h, 14);
       grp.dice.forEach((d) => d.setAlpha(sel == null || on || sel === 'held' ? 1 : 0.45));
     });
     this._drawHeld();
@@ -874,7 +950,7 @@ class TableScene extends Phaser.Scene {
     const { box, frame, roll } = this.heldSlot;
     frame.clear();
     if (!roll) return;
-    frame.fillStyle(hex(C.depth), 0.55).fillRoundedRect(box.x, box.y, box.w, box.h, 8);
+    frame.fillStyle(hex(C.depth), 0.6).fillRoundedRect(box.x, box.y, box.w, box.h, 8);
     frame.lineStyle(this.sel === 'held' ? 3 : 1.5, hex(C.gold), this.sel === 'held' ? 1 : 0.6).strokeRoundedRect(box.x, box.y, box.w, box.h, 8);
   }
 
@@ -890,16 +966,15 @@ class TableScene extends Phaser.Scene {
   }
 
   nudge(msg) {
-    this.status.setText(msg);
-    this._punch(this.status, 1.2, 100);
-    if (!this.calm) this.groups.forEach((grp) => { if (!grp.gone) this.tweens.add({ targets: grp.frame, alpha: 0.4, duration: 80, yoyo: true }); });
+    this._say(msg, true);
+    if (!this.calm) this.groups.forEach((grp) => { if (!grp.gone) grp.dice.forEach((d, k) => this.tweens.add({ targets: d, angle: 6, duration: 60, yoyo: true, delay: k * 30 })); });
+    this.settleUntil = this.time.now + 250;
   }
 
   // Hold: the chosen roll shrinks into the held slot; the other one leaves.
   hold(gi) {
     this.live = false;
-    this.setTimer(null);
-    this.status.setText(`Held for later. Waiting for ${this.opts.rival}…`);
+    this._say(`Held. Waiting for ${this.opts.rival}…`);
     const grp = this.groups[gi];
     const roll = { dice: grp.values.slice(), gold: grp.offer.gold };
     grp.frame.clear();
@@ -950,19 +1025,18 @@ class TableScene extends Phaser.Scene {
   }
 
   // The match layer accepted my turn. `landed` is what went where, in order (a held
-  // roll first). The roll in hand flies into its zone; then each placement shows
+  // roll first). The roll in hand flies up into its zone; then each placement shows
   // its points and what boosted them, and pays into my total.
   lockMine(gi, landed, auto) {
     this.live = false;
     this.hover = -1;
-    this.setTimer(null);
-    this.status.setText(auto ? 'Out of time — the roll was placed for you' : `Locked in. Waiting for ${this.opts.rival}…`);
+    this._say(auto ? 'Out of time: placed for you' : `Locked in. Waiting for ${this.opts.rival}…`, auto);
     const grp = this.groups[gi];
     const n = this.variant.dice;
     grp.frame.clear();
     grp.gone = true;
     this._dismissOthers(gi);
-    const current = landed[landed.length - 1].heldFrom == null ? landed[landed.length - 1] : landed.find((e) => e.heldFrom == null);
+    const current = landed.find((e) => e.heldFrom == null);
     for (const e of landed) {
       if (e !== current && !this.mine[e.zone]) this.stageHeld(e.zone); // a held roll dropped in on the last turn
       this.mine[e.zone] = e;
@@ -974,7 +1048,7 @@ class TableScene extends Phaser.Scene {
       this.tweens.killTweensOf(d);
       d.setDepth(31).setAlpha(1);
       this._arc(d, { x: cell.cx + to.x, y: cell.cy + to.y }, {
-        ms: 300, delay: k * 50, lift: 60, spin: 360 * (k % 2 ? -1 : 1) - d.angle, size: cell.ds,
+        ms: 300, delay: k * 50, lift: 30, spin: 360 * (k % 2 ? -1 : 1) - d.angle, size: cell.ds,
         done: () => {
           d.setVisible(false).setDepth(10);
           to.setTexture(this._face(current.dice[k], cell.ds, current.gold === k)).setVisible(true);
@@ -998,7 +1072,7 @@ class TableScene extends Phaser.Scene {
     const from = this.myTotal;
     const points = e.total;
     this.myTotal += points + e.sweep;
-    const px = cell.cx + cell.points.x - 18, py = cell.cy + cell.points.y;
+    const px = cell.cx + cell.points.x - 16, py = cell.cy + cell.points.y;
     cell.points.setText(String(points)).setScale(1).setColor(points ? C.gold : C.white).setAlpha(points ? 1 : 0.4);
     cell.tags.setText(this._tagsFor(e));
     if (points) this._pop(cell.points, 1.9); // a blank stays dim: no fanfare for a zero
@@ -1011,40 +1085,53 @@ class TableScene extends Phaser.Scene {
     const level = Math.max(this._level(cell.zone, e.base), e.base > 0 && e.mult > 1 ? e.mult - 1 : 0);
     this._celebrate(px, py, level, e.mult > 1 && cell.zone.celebrate < 2 ? `×${e.mult}!` : this._shout(cell.zone, points));
     this._award(px, py - 6, points, this.youTotal, C.gold, () => this._countTo(this.youTotal, from, from + points));
+    // the dealer has an opinion
+    this._react(e.streak >= 3 ? 'streak' : 'idle'); // what he settles into afterwards
+    if (!points) { this._react('wince'); this._say(e.streak === 0 && from ? 'Ouch. Streak over' : 'Nothing there', true); }
+    else if (cell.zone.celebrate >= 3) { this._react('celebrate'); this._say(`${cell.zone.name}! ${points}`, true); }
+    else if (e.streak >= 3) { this._react('cheer'); this._say(`${e.streak} in a row!`, true); }
+    else if (points >= 12 || e.mult > 1) { this._react('cheer'); this._say(points >= 25 ? `Huge! ${points}` : `Nice, ${points}`, true); }
     if (e.sweep) {
       this._after(420, () => {
         this._callout(`Sweep +${e.sweep}`, 2);
         this._shake(160, 0.003);
+        this._react('celebrate');
+        this._say(`Sweep! +${e.sweep}`, true);
         this.table_.sets[cell.zone.set].forEach((z, k) => this.tweens.add({ targets: this.cells[z].c, y: this.cells[z].cy - 10, delay: k * 60, duration: 120, yoyo: true }));
         this._award(px, py - 6, e.sweep, this.youTotal, C.gold, () => this._countTo(this.youTotal, from + points, from + points + e.sweep));
       });
     }
   }
 
-  // Both players are in for the turn: the rival's dice fly from the tray to their
-  // strip, where everyone can see what they chose. `holding` if they set a roll aside.
+  // Both players are in for the turn. The rival's dice fly up from the tray and
+  // hover over the zone they chose, long enough to read, then shrink to a coral
+  // dot that stays on the zone. `holding` if they set a roll aside.
   revealRival(landed, holding) {
-    const { die } = this.L;
-    const mid = this.L.tray.x + this.L.tray.w / 2, y0 = this.L.tray.y + this.L.tray.h / 2;
+    const { die, tray } = this.L;
+    const mid = tray.x + tray.w / 2, y0 = tray.y + tray.h / 2;
     this.rivalStatus.setText(holding ? 'Holding a roll' : '').setColor(C.rival);
     landed.forEach((e, idx) => {
-      const cell = this.strip[e.zone];
-      this._after(idx * 200, () => {
-        cell.roll = e;
-        cell.hot = true;
-        this._drawStripCell(cell);
-        cell.mult.setText(e.mult > 1 ? `×${e.mult}` : '');
-        cell.dice.forEach((d, k) => {
-          const key = this._face(e.dice[k], cell.ds, e.gold === k);
-          d.setTexture(key);
-          if (this.calm) { d.setVisible(true); return; }
-          const ghost = this._die(key, mid + (k - 1) * die * 0.6, y0, die * 0.5, 30).setAlpha(0.9);
-          this._arc(ghost, { x: d.x, y: d.y }, {
-            ms: 260, delay: k * 45, lift: 24, spin: 180, size: cell.ds,
-            done: () => { ghost.destroy(); d.setVisible(true); this._pop(d, 1.7, 150); },
-          });
+      const cell = this.cells[e.zone];
+      const n = e.dice.length;
+      const show = Math.min(22, (cell.r.w - 30) / n - 2);
+      this._after(idx * 220, () => {
+        const done = () => { cell.rivalIn = true; this._drawZone(cell, e.zone); };
+        if (this.calm) { done(); return; }
+        const ty = cell.cy - cell.r.h / 2 + 4; // perched on the zone's top edge, towards the right, clear of its name
+        const w = n * (show + 2) + 10;
+        const px = cell.cx + cell.r.w / 2 - w / 2 - 6;
+        const ghosts = e.dice.map((v, k) => {
+          const g = this._die(this._face(v, show, e.gold === k), mid + (k - (n - 1) / 2) * die * 0.6, y0, die * 0.5, 30);
+          this._arc(g, { x: px + (k - (n - 1) / 2) * (show + 2), y: ty }, { ms: 280, delay: k * 45, lift: 30, spin: 180, size: show, ease: 'Cubic.easeOut' });
+          return g;
         });
-        this._after(650, () => { cell.hot = false; this._drawStripCell(cell); });
+        const ring = this.add.graphics().setDepth(29);
+        this._after(330, () => ring.fillStyle(hex(C.rival), 1).fillRoundedRect(px - w / 2, ty - show / 2 - 4, w, show + 8, 8));
+        this._after(1250, () => {
+          ring.destroy();
+          ghosts.forEach((g) => this._arc(g, { x: cell.cx + cell.dot.x, y: cell.cy + cell.dot.y }, { ms: 200, lift: 0, size: 6, done: () => g.destroy() }));
+          this._after(210, done);
+        });
       });
     });
   }
@@ -1124,42 +1211,40 @@ class TableScene extends Phaser.Scene {
   }
 
   // ---------- the reveal ----------
-  // Step by step in table order: both rolls slide in, the scores spin up, the points
-  // (and any bounty) fly to the totals and a tug-of-war bar shows who is ahead.
-  // After each set's last zone comes its sweep. The last zone takes its time.
-  // Calls done() after the final banner.
+  // Step by step in table order, played out in the tray: both rolls slide in, the
+  // scores spin up, the points (and any bounty) fly to the totals and a tug-of-war
+  // bar shows who is ahead. After each set's last zone comes its sweep. The last
+  // zone takes its time. Calls done() after the final banner.
   reveal(result, done) {
-    const { tray, portrait, rail } = this.L;
+    const { tray, portrait } = this.L;
     const cx = tray.x + tray.w / 2;
     this.live = false;
     this.setTimer(null);
     this.setHeld(null);
     this.showNext(null);
-    this.status.setText('');
     this.rivalStatus.setText('');
     if (this.or) this.or.setAlpha(0);
-    this.rivalName.setY(rail.y + rail.h / 2).setX(rail.x + rail.w - 12 - (portrait ? 58 : 72));
     this.counter.setText('The reveal');
-    this._punch(this.counter, 1.4, 160);
-    this.pips.clear();
+    this._say('Zone by zone…');
+    this._react('idle');
     this.groups.forEach((grp) => { grp.frame.clear(); grp.dice.forEach((d) => d.setVisible(false)); });
     this.youTotal.setText('0');
     this.rivalTotal.setText('0');
     this.cells.forEach((c) => { c.points.setAlpha(0.25); c.tags.setAlpha(0.25); });
 
-    const ds = portrait ? 34 : 40;
-    const side = portrait ? 108 : 190; // distance of each player's column from centre
-    const top = tray.y + 16;
-    const title = this._big(cx, top, '', portrait ? 24 : 28, C.white, { origin: [0.5, 0] });
+    const ds = portrait ? 28 : 32;
+    const side = portrait ? 122 : 210; // distance of each player's column from centre
+    const top = tray.y + 8;
+    const title = this._big(cx, top, '', portrait ? 20 : 24, C.white, { origin: [0.5, 0] });
     const col = (sign, color, total) => ({
       sign, color, total,
-      dice: this._minis(cx + sign * side, top + 26, ds, 4, 12),
-      pts: this._big(cx + sign * side, top + 76, '', portrait ? 44 : 52, color, { origin: [0.5, 0.5], depth: 12 }),
-      note: this._text(cx + sign * side, top + 76 + (portrait ? 30 : 34), '', 12, C.line, { weight: '700', origin: [0.5, 0.5], depth: 12 }),
+      dice: this._minis(cx + sign * side, top + ds / 2 + 2, ds, 4, 12),
+      pts: this._big(cx + sign * side, top + ds + 30, '', portrait ? 38 : 44, color, { origin: [0.5, 0.5], depth: 12 }),
+      note: this._text(cx + sign * side, top + ds + 58, '', 11.5, C.line, { weight: '700', origin: [0.5, 0.5], depth: 12 }),
     });
     const a = col(-1, C.gold, this.youTotal), b = col(1, C.rival, this.rivalTotal);
-    const barW = Math.min(300, tray.w - 40), barY = tray.y + tray.h - 12;
-    const lead = this._text(cx, top + (portrait ? 50 : 58), '', 14, C.white, { weight: '700', origin: [0.5, 0.5] });
+    const barW = Math.min(170, tray.w - 2 * side + 100), barY = tray.y + tray.h - 16;
+    const lead = this._text(cx, top + (portrait ? 44 : 50), '', 13, C.white, { weight: '700', origin: [0.5, 0.5] });
     const bar = this.add.graphics().setDepth(2);
     const tug = { v: 0 }; // -1 rival far ahead … +1 you far ahead
     const drawBar = () => {
@@ -1188,7 +1273,6 @@ class TableScene extends Phaser.Scene {
       const drawn = isZone ? s.winner === 'draw' : s.a === s.b;
       const lit = isZone ? [s.index] : this.table_.sets[s.set];
       this.cells.forEach((c, k) => { c.hot = lit.includes(k); this._drawZone(c, k); });
-      this.strip.forEach((c, k) => { c.hot = lit.includes(k); this._drawStripCell(c); });
       for (const k of lit) {
         this.cells[k].points.setAlpha(1);
         this.cells[k].tags.setAlpha(1);
@@ -1209,7 +1293,7 @@ class TableScene extends Phaser.Scene {
           const x = cx + colm.sign * side + (k - (colm.dice.length - 1) / 2) * (ds + 4);
           d.setTexture(this._face(entry.dice[k], ds, entry.gold === k)).setX(x);
           if (this.calm) return;
-          d.setX(x + colm.sign * 70).setAlpha(0).setAngle(colm.sign * 40);
+          d.setX(x + colm.sign * 60).setAlpha(0).setAngle(colm.sign * 40);
           this.tweens.add({ targets: d, x, alpha: 1, angle: 0, delay: k * 50, duration: 240, ease: 'Back.easeOut' });
         });
       }
@@ -1225,10 +1309,10 @@ class TableScene extends Phaser.Scene {
               colm.note.setText([entry ? this._tagsFor(entry) : '', bounty ? `+${bounty} bounty` : ''].filter(Boolean).join('  '));
               const lost = !won && !drawn;
               if (this.calm) { colm.pts.setAlpha(lost ? 0.45 : 1); return; }
-              this.tweens.add({ targets: colm.pts, scale: won ? 1.5 : 1.15, duration: 110, yoyo: !won, ease: 'Sine.easeOut' });
+              this.tweens.add({ targets: colm.pts, scale: won ? 1.45 : 1.15, duration: 110, yoyo: !won, ease: 'Sine.easeOut' });
               if (won) {
-                this.tweens.add({ targets: colm.pts, scale: 1.2, delay: 110, duration: 200, ease: 'Back.easeOut' });
-                this._ring(colm.pts.x, colm.pts.y, colm.color, { to: 1.5 });
+                this.tweens.add({ targets: colm.pts, scale: 1.18, delay: 110, duration: 200, ease: 'Back.easeOut' });
+                this._ring(colm.pts.x, colm.pts.y, colm.color, { to: 1.3 });
               }
               if (lost) this.tweens.add({ targets: colm.pts, alpha: 0.45, scale: 0.85, delay: 230, duration: 160 });
             },
@@ -1238,20 +1322,23 @@ class TableScene extends Phaser.Scene {
         const level = !isZone ? 2 : Math.max(this._level(this.zones[s.index], hit[1]?.base || 0), hit[1]?.base > 0 && hit[1].mult > 1 ? hit[1].mult - 1 : 0);
         const shout = !isZone ? `Sweep +${hit[2]}` : hit[1] && hit[1].mult > 1 && this.zones[s.index].celebrate < 2 ? `×${hit[1].mult}!` : this._shout(this.zones[s.index], hit[2]);
         this._after(270, () => this._celebrate(hit[0].pts.x, hit[0].pts.y, level, shout));
+        // the dealer sides with the player
+        const mine = sides[0], theirs = sides[1];
+        if (mine[4]) this._react('cheer'); else if (theirs[4]) this._react('wince');
       });
 
       // the points fly to the totals; the bar and the lead line follow
       this._after(beat + 430, () => {
-        this._award(a.pts.x, a.pts.y - 30, s.totalA - prev.totalA, a.total, a.color, () => this._countTo(a.total, prev.totalA, s.totalA));
-        this._award(b.pts.x, b.pts.y - 30, s.totalB - prev.totalB, b.total, b.color, () => this._countTo(b.total, prev.totalB, s.totalB));
+        this._award(a.pts.x, a.pts.y - 24, s.totalA - prev.totalA, a.total, a.color, () => this._countTo(a.total, prev.totalA, s.totalA));
+        this._award(b.pts.x, b.pts.y - 24, s.totalB - prev.totalB, b.total, b.color, () => this._countTo(b.total, prev.totalB, s.totalB));
         const diff = s.totalA - s.totalB;
         const before = prev.totalA - prev.totalB;
         this.tweens.add({ targets: tug, v: Math.max(-1, Math.min(1, diff / swing)), delay: 300, duration: 380, ease: 'Back.easeOut', onUpdate: drawBar });
         this._after(300, () => {
-          lead.setText(diff > 0 ? `${this.opts.you} lead by ${diff}` : diff < 0 ? `${this.opts.rival} leads by ${-diff}` : 'Level');
+          lead.setText(diff > 0 ? `You lead by ${diff}` : diff < 0 ? `${this.opts.rival} by ${-diff}` : 'Level');
           lead.setColor(diff > 0 ? C.gold : diff < 0 ? C.rival : C.white);
           // the lead changing hands is the moment worth shouting about
-          if (before * diff < 0) { this._punch(lead, 1.7, 160); this._shake(120, 0.003); }
+          if (before * diff < 0) { this._punch(lead, 1.7, 160); this._shake(120, 0.003); this._say(diff > 0 ? 'You take the lead!' : `${this.opts.rival} takes the lead`, true); }
         });
       });
       this._after(beat + 430 + 820, () => step(i + 1));
@@ -1263,20 +1350,22 @@ class TableScene extends Phaser.Scene {
     const { tray, W, H } = this.L;
     const cx = tray.x + tray.w / 2, cy = tray.y + tray.h / 2;
     this.cells.forEach((c, k) => { c.hot = false; this._drawZone(c, k); });
-    this.strip.forEach((c) => { c.hot = false; this._drawStripCell(c); });
     for (const p of this.revealParts) { this.tweens.killTweensOf(p); this.tweens.add({ targets: p, alpha: 0, duration: 200 }); }
     const won = result.result === 'a', lost = result.result === 'b';
-    const banner = this._big(cx, cy - 8, won ? 'You win' : lost ? `${this.opts.rival} wins` : 'Draw', this.L.portrait ? 50 : 64,
+    const banner = this._big(cx, cy - 10, won ? 'You win' : lost ? `${this.opts.rival} wins` : 'Draw', this.L.portrait ? 44 : 54,
       won ? C.gold : lost ? C.rival : C.white, { origin: [0.5, 0.5], depth: 45 }).setStroke(C.feltWell, 8);
-    const sub = this._text(cx, cy + 40, result.tiebreak
-      ? `Level on ${result.totalA} — decided on zones won, ${result.zonesWonA} to ${result.zonesWonB}`
-      : `${result.totalA} to ${result.totalB}`, 17, C.white, { weight: '700', origin: [0.5, 0.5], depth: 45 });
+    const sub = this._text(cx, cy + 30, result.tiebreak
+      ? `Level on ${result.totalA}: zones won ${result.zonesWonA} to ${result.zonesWonB}`
+      : `${result.totalA} to ${result.totalB}`, 16, C.white, { weight: '700', origin: [0.5, 0.5], depth: 45 });
     this._pop(banner, 2.6, 380);
     this._pop(sub, 1.2, 380);
+    this._say(won ? 'Good boy!' : lost ? 'Next time' : 'Dead level', true);
+    this._react('idle');
+    if (won) this._react('celebrate'); else if (lost) this._react('sulk');
     if (won || lost) this._punch(won ? this.youTotal : this.rivalTotal, 1.5, 200);
     if (won) {
       for (let k = 0; k < 4; k++) {
-        this._after(k * 160, () => this._burst(rnd(W * 0.15, W * 0.85), rnd(H * 0.1, H * 0.35), 46,
+        this._after(k * 160, () => this._burst(rnd(W * 0.15, W * 0.85), rnd(H * 0.3, H * 0.6), 46,
           [C.gold, C.white, C.rival, C.line], { tex: 'chip', size: 1.5, life: 1700, speed: [120, 460], gravity: 420 }));
       }
       this._celebrate(cx, cy, 3);

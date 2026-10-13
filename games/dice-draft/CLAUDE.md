@@ -5,7 +5,7 @@ the launcher live in the root `CLAUDE.md`.
 
 ## What this is
 
-**Dice Draft** (working title) — a 2-player dice placement game with a Sic Bo feel,
+**Loaded Dice** (renamed from "Dice Draft"; the folder and URL are still `dice-draft`) — a 2-player dice placement game with a Sic Bo feel,
 currently played against a bot. Each turn both players are shown the *same* rolls
 and each privately places one into one of their own 8 zones. Placement is final.
 When the table is full, the zones are scored one by one and the higher total wins.
@@ -50,6 +50,8 @@ js/bots.js        BOTS — five opponents, random → solver + Hold/Peek search
 js/table.js       Table (public API) + TableScene (Phaser): the whole play surface
 js/game.js        controller: DOM, HUD, turn timer, bot pacing, what a tap means
 assets/           pre-rendered dice sheets (white and gold): roll, faces, flip; dice-roll.json
+assets/mascot/    Bones the dealer: one sprite sheet per clip, described by bones.json
+design/mascots/   mascot concept art from the render pipeline; drafts, not loaded by the game
 sim/play.js       headless match runner (bots through match.js), solver cache per table
 sim/balance.js    balance simulator → BALANCE.md
 test/rules.test.js
@@ -112,9 +114,24 @@ All in `engine.js`, all driven by numbers in `config.js`:
   roll simply appears. The sheets were rendered by a one-off script outside this
   repo; new art must keep the layout in the JSON (2 and 3 diagonal top-left to
   bottom-right, 6 as two columns).
+- **The table, top to bottom:** the header (your score, Bones the dealer, the
+  rival's score), a line for the turn and what Bones says (`_say`), the zones, and
+  the tray with this turn's rolls by the player's thumbs. There is no separate
+  rival board: when the rival places, their dice hover over that zone for a moment
+  and then shrink to a coral dot on it (`revealRival`).
+- **Zones draw their rule.** An open zone shows `zone.picture` (dice, with a dashed
+  outline for "any die", or a short phrase) and `zone.pays`, both generated in
+  `config.js` (`PICTURES`). A filled zone shows the dice that landed and the score.
+- **Bones reacts through `_react(pose)`.** His clips are pre-rendered sheets, one per
+  clip, all framed identically around one pivot (the centre of his head), read from
+  `assets/mascot/bones.json`. `throw`, `cheer`, `wince` and `celebrate` play once and
+  drop back to his base loop; `idle` and `streak` are the base loops (streak while
+  the player has scored three turns running); `sulk` holds its last frame. The dice
+  leave on the throw clip's `releaseFrame`. If the JSON or sheets fail to load the
+  header simply has no dealer.
 - **Two layouts, one scene.** `layoutFor(portrait, zones, offers)` returns every
-  rectangle (4×2 zones at 720×640, 2×4 at 420×750; smaller dice when two rolls share
-  the tray). `game.js` picks by window width when a match starts. Position things
+  rectangle (4×2 zones at 720 wide, 2×4 at 420 wide; the height follows from the
+  parts). `game.js` picks by window width when a match starts. Position things
   from the layout object, never from literals.
 
 ## Conventions & invariants
@@ -140,8 +157,13 @@ All in `engine.js`, all driven by numbers in `config.js`:
   shortcut, and what defines the two sweep sets.
 - **Tie-break:** level totals go to whoever won more zones (`TIEBREAK_ZONES_WON`);
   level on both is a draw.
-- **Timeouts** take the first roll into the open zone with the lowest average payout,
-  spend no power-ups, and set `auto: true` on the log entry.
+- **One clock per match, not per turn.** Each player has `MATCH_SECONDS` of thinking
+  time for the whole match (the user asked for this instead of a per-turn timer).
+  `game.js` runs it only while the player has a move to make, so animations and the
+  rival's turn are free. At zero, this turn and every later one is auto-placed: the
+  first roll into the open zone with the lowest average payout, no power-ups,
+  `auto: true` on the log entry. The clock lives in the controller, not in
+  `match.js`; a real server would have to own it.
 - **Bots get the same view as the player** and never see the player's pending action.
   Keep that information set honest. Bot strength order is asserted in the tests and
   reported in BALANCE.md; re-check both if you retune one.

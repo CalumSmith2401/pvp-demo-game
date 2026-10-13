@@ -2,7 +2,7 @@
 // what the player's taps mean (which roll is in hand, which power-ups are armed).
 // It talks to the match only through the authoritative layer's public API
 // (view / act / peek / result), the same surface a networked client would get.
-import { GAME_NAME, TURN_SECONDS, VARIANTS, DEFAULT_VARIANT, POWERS, buildVariant } from './config.js';
+import { GAME_NAME, MATCH_SECONDS, CLOCK_WARNING_SECONDS, VARIANTS, DEFAULT_VARIANT, POWERS, buildVariant } from './config.js';
 import { createMatch, zoneAverages } from './match.js';
 import { applyAction, openZones } from './engine.js';
 import { createSolver } from './solver.js';
@@ -24,6 +24,7 @@ const state = {
   timer: null,
   botTimer: null,
   turn: null,      // what the player has set up this turn (see newTurn)
+  clock: 0,        // milliseconds of thinking time the player has left this match
 };
 
 let table = null;
@@ -72,7 +73,7 @@ function renderHowTo() {
       <li>One die in each roll is gold: it adds its number to whatever the roll scores. The Hot zone pays double.</li>
       <li>Score on turn after turn to build a streak. Each scoring placement in a row adds ${v.streak.step} more, up to ${v.streak.step * v.streak.cap}. A blank resets it.</li>
       <li>Score in all of zones 1–4, or all of zones 5–8, for a ${v.sweep}-point sweep.</li>
-      <li>Your rival's move stays hidden until you have both locked in. You have ${TURN_SECONDS} seconds a turn; run out and the first roll goes in your weakest open zone.</li>
+      <li>Your rival's move stays hidden until you have both locked in. You have ${MATCH_SECONDS / 60 === Math.floor(MATCH_SECONDS / 60) ? `${MATCH_SECONDS / 60} minutes` : `${MATCH_SECONDS} seconds`} of thinking time for the whole match. The clock only runs while it is your move. Run out and the rest of your rolls are placed for you.</li>
       <li>At the end the zones are scored one by one. Winning a zone outright is worth ${v.bounty} more. Higher total wins.</li>
     </ol>
     <h3>Power-ups, once each per match</h3>
@@ -88,6 +89,7 @@ async function startMatch() {
   state.variant = buildVariant(state.variantId);
   state.bot = getBot(state.botId);
   state.match = createMatch({ seed, variant: state.variant });
+  state.clock = MATCH_SECONDS * 1000;
   // The stronger bots need this table solved. It takes a few hundred milliseconds,
   // so it is done in slices while the table deals itself in.
   const solver = state.bot.needsSolver ? createSolver(state.variant, state.match.table) : null;
@@ -151,24 +153,39 @@ function nextTurn() {
   });
 }
 
+// The match clock ticks only while the player has a move to make: it starts when
+// the dice have landed and stops the moment the turn is sent (see submit).
 function startTimer() {
-  const total = TURN_SECONDS * 1000;
-  const deadline = performance.now() + total;
   const run = state.run;
+  let last = performance.now();
   clearInterval(state.timer);
+  showClock();
+  if (state.clock <= 0) { later(500, timeOut); return; } // already out of time: this turn plays itself
   state.timer = setInterval(() => {
     if (run !== state.run) return;
-    const left = deadline - performance.now();
-    table.setTimer(Math.max(0, left / total));
-    if (left <= 0) timeOut();
+    const now = performance.now();
+    state.clock = Math.max(0, state.clock - (now - last));
+    last = now;
+    showClock();
+    if (state.clock <= 0) timeOut();
   }, 100);
 }
 
-// Out of time: the first roll goes into the least valuable open zone, no power-ups.
+function showClock() {
+  const secs = Math.ceil(state.clock / 1000);
+  table.setTimer(state.clock / (MATCH_SECONDS * 1000), {
+    label: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`,
+    urgent: secs <= CLOCK_WARNING_SECONDS,
+  });
+}
+
+// Out of time for the match: the first roll goes into the least valuable open zone,
+// no power-ups. Every turn after this one does the same as soon as it starts.
 // (The same move match.timeout() makes; built here so a held roll already put in a
 // zone this turn still counts.)
 function timeOut() {
   const v = view(), t = state.turn;
+  if (!t || t.locked) return;
   const avg = zoneAverages(state.variant, state.match.table);
   const zone = openZones(v.board).filter((z) => z !== t.stage?.zone).reduce((best, z) => (avg[z] < avg[best] ? z : best));
   if (t.flip) { table.flip(t.flip.group, t.flip.die); t.flip = null; }
