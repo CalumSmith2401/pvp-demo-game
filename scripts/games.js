@@ -32,13 +32,14 @@ export function printGames(games = listGames()) {
   for (const g of games) console.log(`  ${g.id.padEnd(width)}  ${g.description || g.name}`);
 }
 
-// The hub page: a card per game. Served at / by the dev server (play.js) and
+// The hub page: a card per game. Links are relative so it also works when the
+// site is hosted under a path (GitHub Pages serves it at /<repo>/). Served at / by the dev server (play.js) and
 // written to games/index.html for static hosting (build.js).
 const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
 
 export function hubHTML() {
   const cards = listGames()
-    .map((g) => `<a class="game" href="/${g.id}/"><h2>${escape(g.name)}</h2><p>${escape(g.description)}</p></a>`)
+    .map((g) => `<a class="game" href="./${g.id}/"><h2>${escape(g.name)}</h2><p>${escape(g.description)}</p></a>`)
     .join('\n');
   return `<!DOCTYPE html>
 <html lang="en">

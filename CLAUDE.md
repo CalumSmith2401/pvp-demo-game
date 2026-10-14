@@ -22,6 +22,15 @@ npm test               # run every game's tests
 npm test <game>        # run one game's tests
 ```
 
+## Deploying
+
+Pushing to `main` publishes the games to GitHub Pages
+(`.github/workflows/pages.yml`): https://calumsmith2401.github.io/pvp-demo-game/
+The site is the `games/` directory plus a hub page written by `npm run build`
+(`scripts/build.js` → `games/index.html`, git-ignored). It is served under
+`/pvp-demo-game/`, so the hub and every game must keep using **relative** paths.
+`vercel.json` describes the same static site for Vercel, should that be used later.
+
 ## Layout
 
 ```
