@@ -1,5 +1,5 @@
 import assert from 'node:assert';
-import { buildVariant, VARIANTS, DEFAULT_VARIANT, POWERS, GAME_NAME } from '../js/config.js';
+import { buildVariant, VARIANTS, DEFAULT_VARIANT, ORIGINAL_GAME, POWERS, GAME_NAME } from '../js/config.js';
 import { makeTable, makeOffers, newPlayer, scorePlacement, checkAction, applyAction, buildReveal, flipDie } from '../js/engine.js';
 import { createMatch } from '../js/match.js';
 import { createSolver, rollTable } from '../js/solver.js';
@@ -12,8 +12,10 @@ function t(name, fn) {
   catch (e) { console.error('  ✗ ' + name + '\n    ' + e.message); process.exitCode = 1; }
 }
 
-const classic = buildVariant('classic');
-const arcade = buildVariant('arcade');
+// The original no-extras game: not playable, but the engine still has to run it (it
+// is the simulator's baseline) and its pool carries the base pay values.
+const classic = buildVariant(DEFAULT_VARIANT, ORIGINAL_GAME);
+const arcade = buildVariant();
 const pool = (variant, id) => variant.pool.find((z) => z.id === id);
 const pts = (id, dice) => pool(classic, id).score(dice);
 
@@ -77,22 +79,22 @@ t('the six zones added to the pool', () => {
   assert.strictEqual(pts('lucky7', [1, 5, 3]), 0);
 });
 
-t('each zone advertises its true maximum, in every variant', () => {
+t('each zone advertises its true maximum, with and without the pay overrides', () => {
   const { rolls } = rollTable(3);
-  for (const id of Object.keys(VARIANTS)) {
-    for (const z of buildVariant(id).pool) assert.strictEqual(Math.max(...rolls.map(z.score)), z.max, `${id}/${z.id}`);
+  for (const v of [arcade, classic]) {
+    for (const z of v.pool) assert.strictEqual(Math.max(...rolls.map(z.score)), z.max, `${v.id}/${z.id}`);
   }
 });
 
-t('a season is a data-only override of the pay table', () => {
-  assert.strictEqual(pool(buildVariant('triples'), 'triple').score([2, 2, 2]), VARIANTS.triples.pay.triple.points);
-  assert.match(pool(buildVariant('triples'), 'triple').hint, new RegExp(String(VARIANTS.triples.pay.triple.points)));
+t('the rule set overrides the pool pay values as data', () => {
+  assert.strictEqual(pool(arcade, 'triple').score([2, 2, 2]), VARIANTS[DEFAULT_VARIANT].pay.triple.points);
+  assert.match(pool(arcade, 'triple').hint, new RegExp(String(VARIANTS[DEFAULT_VARIANT].pay.triple.points)));
   assert.strictEqual(pool(classic, 'triple').score([2, 2, 2]), 30);
 });
 
 console.log('the table and the rolls');
 
-t('Classic is the original game: eight fixed zones, one roll, no extras', () => {
+t('the original game: eight fixed zones, one roll, no extras', () => {
   const tb = makeTable(99, classic);
   assert.deepStrictEqual(tb.zones.map((z) => z.id), ['small', 'big', 'triple', 'double', 'straight', 'sixes', 'ones', 'total']);
   assert.strictEqual(tb.hot, -1);
@@ -378,9 +380,8 @@ t('the solver can be run in slices and gives the same answer', () => {
   assert.strictEqual(sliced.startValue(), createSolver(arcade, tb).solve().startValue());
 });
 
-t('every bot plays whole matches legally, in every variant', () => {
-  for (const id of Object.keys(VARIANTS)) {
-    const v = buildVariant(id);
+t('every bot plays whole matches legally, with and without the extras', () => {
+  for (const v of [arcade, classic]) {
     for (const bot of BOTS) for (let seed = 1; seed <= 12; seed++) playMatch(seed, v, bot, getBot('tourist'), 1 + (seed % 3));
   }
 });
