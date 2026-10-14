@@ -187,7 +187,6 @@ dialog li::marker { font-family: var(--display); color: var(--ground); }
 dialog p { margin: 0 0 22px; }
 dialog h3 { font-family: var(--display); font-weight: 400; font-size: 1.2rem; color: var(--ground); margin: 0 0 8px; }
 dialog ul { margin: 0 0 16px; padding-left: 1.2em; }
-dialog .aside { font-size: 0.95rem; color: #3A4A8C; }
 #howto-dialog { width: min(94vw, 560px); max-height: 90dvh; overflow-y: auto; }
 dialog form { display: flex; justify-content: center; }
 

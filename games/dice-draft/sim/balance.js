@@ -13,7 +13,7 @@
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { GAME_NAME, VARIANTS, DEFAULT_VARIANT, POWERS, buildVariant, TIEBREAK_ZONES_WON } from '../js/config.js';
+import { GAME_NAME, DEFAULT_VARIANT, ORIGINAL_GAME, POWERS, buildVariant, TIEBREAK_ZONES_WON } from '../js/config.js';
 import { BOTS, getBot } from '../js/bots.js';
 import { makeTable } from '../js/engine.js';
 import { createSolver } from '../js/solver.js';
@@ -149,7 +149,7 @@ check('5. No seat advantage', exactMirror && Math.abs(seatSkew) <= seatNoise,
 progress('seats');
 
 // the original game, for comparison
-const classic = buildVariant('classic');
+const classic = buildVariant(DEFAULT_VARIANT, ORIGINAL_GAME);
 const classicN = Math.min(N, 40000);
 const classicRandom = series(classic, bot('shark'), bot('tourist'), classicN);
 const classicGreedy = series(classic, bot('shark'), bot('regular'), classicN);
@@ -272,20 +272,6 @@ say(table(['Rules', 'Solver vs random', 'Solver vs greedy (W / D / L)', 'Greedy 
 say();
 say('The original report\'s main caveat was that a simple heuristic was nearly optimal. That gap is the thing');
 say('to watch in this table.');
-say();
-
-say('## Other variants');
-say();
-const variantRows = Object.keys(VARIANTS).filter((id) => id !== DEFAULT_VARIANT && id !== 'classic').map((id) => {
-  const v = buildVariant(id);
-  const n = Math.min(N, 10000);
-  const r = series(v, bot('shark'), bot('tourist'), n);
-  const g = series(v, bot('shark'), bot('regular'), n);
-  return [v.name, pct(r.a / r.n), wdl(g), `${num(g.meanA)} vs ${num(g.meanB)}`];
-});
-say(table(['Variant', 'Solver vs random', 'Solver vs greedy (W / D / L)', 'Mean score'], variantRows));
-say();
-say(`${Math.min(N, 10000).toLocaleString('en-GB')} matches each. A new season should clear checks 1 to 3 before it ships.`);
 say();
 
 const report = out.join('\n') + '\n';

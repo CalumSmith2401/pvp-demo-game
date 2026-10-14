@@ -1,7 +1,7 @@
 // All tunable game data lives here: the title, the pool of zones and what they
 // pay, the extras (power-ups, hot zone, golden die, streaks, sweeps, bounties) and
-// the named variants. Rebalancing or rotating a season is a data change in this
-// file — nothing else hardcodes a point value.
+// the rule set. Rebalancing is a data change in this file — nothing else hardcodes
+// a point value.
 
 export const GAME_NAME = 'Bad to the Bone'; // the only place the code spells it out
 
@@ -155,7 +155,7 @@ const ZONE_POOL = [
 const CLASSIC_EIGHT = ['small', 'big', 'triple', 'double', 'straight', 'sixes', 'ones', 'total'];
 
 // ---------- the extras ----------
-// One block of switches and numbers per variant. Everything here is the same for
+// The switches and numbers of the game. Everything here is the same for
 // both players, and nothing random happens that isn't dealt to both.
 const EXTRAS = {
   offers: 2,          // rolls shown each turn; you place one ("pick one of two")
@@ -182,25 +182,21 @@ export const POWERS = {
   peek:   { name: 'Peek',   blurb: 'See the next two rolls now.' },
 };
 
-// ---------- variants ----------
-// A variant is a named game mode: its extras, plus per-zone overrides of the pool's
-// pay values. Add an entry and it shows up in the menu, the simulator and the tests
-// automatically.
+// ---------- the rule set ----------
+// The game ships one rule set: the extras, plus per-zone overrides of the pool's pay
+// values. The engine takes it as `variant` everywhere; a second entry here would be
+// playable by the engine, but the menu no longer offers a choice.
 export const VARIANTS = {
   arcade: {
-    id: 'arcade', name: 'Arcade', blurb: 'Everything on: two rolls to pick from, power-ups, a hot zone and a golden die.',
+    id: 'arcade', name: 'Arcade', blurb: 'Two rolls to pick from, power-ups, a hot zone and a golden die.',
     dice: 3, rolls: 8, pay: ARCADE_PAY, ...EXTRAS,
-  },
-  triples: {
-    id: 'triples', name: 'Triples Season', blurb: 'Arcade rules, and Triple pays 30. Is it worth your Flip?',
-    dice: 3, rolls: 8, pay: { ...ARCADE_PAY, triple: { points: 30 } }, ...EXTRAS,
-  },
-  classic: {
-    id: 'classic', name: 'Classic', blurb: 'The original: eight fixed zones, one roll at a time, no extras.',
-    dice: 3, rolls: 8, pay: {}, ...NO_EXTRAS,
   },
 };
 export const DEFAULT_VARIANT = 'arcade';
+// The original game, before the extras: one roll a turn, eight fixed zones, the
+// pool's own pay values. Not playable; the simulator and tests build it with
+// buildVariant(DEFAULT_VARIANT, ORIGINAL_GAME) as a baseline.
+export const ORIGINAL_GAME = { id: 'classic', name: 'Classic', pay: {}, ...NO_EXTRAS };
 
 // Resolve a variant into something playable: the pool as zones with a bound
 // `score(dice)` and display strings generated from their (possibly overridden) pay

@@ -2,7 +2,7 @@
 // what the player's taps mean (which roll is in hand, which power-ups are armed).
 // It talks to the match only through the authoritative layer's public API
 // (view / act / peek / result), the same surface a networked client would get.
-import { GAME_NAME, MATCH_SECONDS, CLOCK_WARNING_SECONDS, VARIANTS, DEFAULT_VARIANT, POWERS, buildVariant } from './config.js';
+import { GAME_NAME, MATCH_SECONDS, CLOCK_WARNING_SECONDS, POWERS, buildVariant } from './config.js';
 import { createMatch, zoneAverages } from './match.js';
 import { applyAction, openZones } from './engine.js';
 import { createSolver } from './solver.js';
@@ -14,7 +14,6 @@ const ME = 'a';
 const RIVAL = 'b';
 
 const state = {
-  variantId: DEFAULT_VARIANT,
   botId: 'grinder',
   variant: null,
   bot: null,
@@ -57,14 +56,9 @@ function renderBots() {
   });
 }
 
-function renderVariants() {
-  renderOptions('#variant-list', Object.values(VARIANTS), state.variantId, (id) => { state.variantId = id; renderVariants(); },
-    (v) => `<strong>${v.name}</strong><span>${v.blurb}</span>`);
-}
-
 // How to play, written from the live config so it can't drift from the rules.
 function renderHowTo() {
-  const v = buildVariant(DEFAULT_VARIANT);
+  const v = buildVariant();
   const powers = v.powers.map((p) => `<li><strong>${POWERS[p].name}:</strong> ${POWERS[p].blurb}</li>`).join('');
   $('#howto-body').innerHTML = `
     <ol>
@@ -77,8 +71,7 @@ function renderHowTo() {
       <li>At the end the zones are scored one by one. Winning a zone outright is worth ${v.bounty} more. Higher total wins.</li>
     </ol>
     <h3>Power-ups, once each per match</h3>
-    <ul>${powers}</ul>
-    <p class="aside">The ${VARIANTS.classic.name} table is the original game: one roll a turn, eight fixed zones and none of the extras.</p>`;
+    <ul>${powers}</ul>`;
 }
 
 // ---------- match ----------
@@ -86,7 +79,7 @@ async function startMatch() {
   clearTimers();
   const run = ++state.run;
   const seed = (Math.random() * 1e9) | 0;
-  state.variant = buildVariant(state.variantId);
+  state.variant = buildVariant();
   state.bot = getBot(state.botId);
   state.match = createMatch({ seed, variant: state.variant });
   state.clock = MATCH_SECONDS * 1000;
@@ -461,7 +454,6 @@ document.addEventListener('keydown', (e) => {
   else if (KEYS[key] && state.variant.powers.includes(KEYS[key])) usePower(KEYS[key]);
 });
 renderBots();
-renderVariants();
 renderHowTo();
 show('menu');
 // The table boots and fetches its artwork behind the menu, so it is ready by the

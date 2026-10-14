@@ -9,15 +9,13 @@ npm start dice    # from the repo root
 npm test dice
 ```
 
-Arcade rules (the default):
+The rules:
 
 - Two rolls are thrown each turn; place one. Eight zones are dealt from a pool of 14.
 - One die per roll is gold and adds its face to whatever the roll scores. One zone is hot and pays double.
 - Scoring on consecutive turns builds a streak bonus. Scoring in all of zones 1–4, or 5–8, pays a sweep.
 - Four power-ups, once each: Flip a die to its opposite face, Double a placement, Hold a roll for later, Peek at the next turn.
 - At the reveal, winning a zone outright is worth a bounty.
-
-The Classic table is the original game: one roll per turn, eight fixed zones, no extras.
 
 Pick a roll, then tap a zone (or drag the roll onto it). Keys: A / B pick a roll, 1–8 place it,
 F D H P use the power-ups, X picks up a held roll. You have three minutes of thinking time

@@ -11,13 +11,12 @@ and each privately places one into one of their own 8 zones. Placement is final.
 When the table is full, the zones are scored one by one and the higher total wins.
 Nothing random happens that isn't dealt to both players: the only edge is decisions.
 
-Two rule sets ship (`VARIANTS` in `js/config.js`):
-
-- **Arcade** (default): two rolls offered per turn (place one), 8 zones dealt from a
-  pool of 14, a hot zone, a golden die, streaks, sweeps, bounties, and four once-per-
-  match power-ups (Flip, Double, Hold, Peek). Triples Season is Arcade with one
-  pay override.
-- **Classic**: the original game. One roll per turn, eight fixed zones, no extras.
+One rule set ships (Arcade, the only entry in `VARIANTS` in `js/config.js`): two rolls
+offered per turn (place one), 8 zones dealt from a pool of 14, a hot zone, a golden
+die, streaks, sweeps, bounties, and four once-per-match power-ups (Flip, Double, Hold,
+Peek). There is no mode picker: the user asked for the game to have just the one mode,
+so Classic and Triples Season were removed. The original no-extras game survives only
+as `ORIGINAL_GAME`, a baseline the simulator and tests build; it is not playable.
 
 The name lives in one constant, `GAME_NAME` in `js/config.js`. The product owner
 dislikes "Duel" in game names; keep it out of any rename.
@@ -137,8 +136,8 @@ All in `engine.js`, all driven by numbers in `config.js`:
 ## Conventions & invariants
 
 - **Balance is data.** The zone pool, every bonus and every switch are in `config.js`.
-  A season or mode is a `VARIANTS` entry: per-zone `pay` overrides plus the extras
-  block. It appears in the menu, simulator and tests automatically. Zone rule and
+  The rule set is the `VARIANTS` entry: per-zone `pay` overrides plus the extras
+  block. The engine calls it `variant` throughout. Zone rule and
   payout text, and the How to play dialog, are generated from those values, so they
   cannot drift from the scoring.
 - **After any rules change, run `node sim/balance.js --write`** and check the verdict

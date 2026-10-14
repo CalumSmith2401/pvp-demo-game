@@ -132,11 +132,3 @@ seat skew is -0.16 percentage points, against a 3σ noise band of ±0.95.
 The original report's main caveat was that a simple heuristic was nearly optimal. That gap is the thing
 to watch in this table.
 
-## Other variants
-
-| Variant | Solver vs random | Solver vs greedy (W / D / L) | Mean score |
-|---|---|---|---|
-| Triples Season | 100.0% | 81.4% / 1.3% / 17.3% | 208.4 vs 183.3 |
-
-10,000 matches each. A new season should clear checks 1 to 3 before it ships.
-
