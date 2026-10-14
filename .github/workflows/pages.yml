@@ -1,0 +1,41 @@
+# Publishes the games to GitHub Pages on every push to main.
+# The site is the games/ directory plus a generated hub page; nothing is bundled.
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run tests
+        run: npm test
+      - name: Build the hub page
+        run: npm run build
+      - name: Leave out what isn't needed to play (docs, tests, simulators, concept art)
+        run: rm -rf games/*/design games/*/test games/*/sim games/*/*.md
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: games
+      - id: deployment
+        uses: actions/deploy-pages@v4
