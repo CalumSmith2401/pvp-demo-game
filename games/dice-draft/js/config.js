@@ -9,7 +9,7 @@ export const GAME_NAME = 'Bad to the Bone'; // the only place the code spells it
 // decision to make (dice on the table, nothing locked in), so animations and the
 // rival's thinking time are free. When it runs out, every turn still to come is
 // placed automatically.
-export const MATCH_SECONDS = 120;
+export const MATCH_SECONDS = 180;
 export const CLOCK_WARNING_SECONDS = 15; // the tray starts pulsing below this
 // Equal totals: the player who won more individual zones takes it. Still a draw
 // if that is level too.
