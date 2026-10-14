@@ -14,12 +14,13 @@ import * as Phaser from 'phaser';
 // Must stay in sync with the palette in css/styles.css (WebGL can't read CSS vars).
 // felt = the table, line = printed linework, gold = you, rival = them.
 const C = {
-  felt: '#1F4BFF', feltHi: '#2F5BFF', feltDeep: '#173CD6', feltWell: '#0E2A99', depth: '#0A1F7A',
-  line: '#B9C8FF', gold: '#FFD23F',
-  white: '#FFFFFF', red: '#FF4D4D', rival: '#FFB3A6', hot: '#FF9A3C',
+  ground: '#0D0B22', glow: '#1A1640',   // the table itself, and the dim light at its centre
+  felt: '#110E2B', feltHi: '#2A2468', feltDeep: '#1B1746', feltWell: '#07060F', depth: '#05040C',
+  line: '#9A94D6', gold: '#FFD23F',
+  white: '#FFFFFF', red: '#FF4D4D', rival: '#FF8A73', hot: '#FF9A3C',
   ink: '#14204D',
 };
-const DISPLAY = '"Lilita One", "Arial Rounded MT Bold", sans-serif';
+const DISPLAY = '"Bagel Fat One", "Arial Rounded MT Bold", sans-serif';
 // Zone rules are long lines in narrow boxes, so the table keeps a condensed face
 // for small text; the DOM uses Nunito.
 const TEXT = '"Barlow Semi Condensed", "Arial Narrow", sans-serif';
@@ -87,14 +88,14 @@ function paintDie(ctx, s, face) {
 function paintFelt(ctx, L) {
   const { W, H, tray } = L;
   const g = ctx.createRadialGradient(W / 2, H * 0.42, 40, W / 2, H * 0.42, Math.max(W, H) * 0.75);
-  g.addColorStop(0, C.feltHi);
+  g.addColorStop(0, C.glow);
   g.addColorStop(0.6, C.felt);
-  g.addColorStop(1, C.feltDeep);
+  g.addColorStop(1, C.ground);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
   // felt nap
   for (let i = 0; i < W * H / 26; i++) {
-    ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,60,0.05)';
+    ctx.fillStyle = Math.random() < 0.5 ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.08)';
     ctx.fillRect(Math.random() * W, Math.random() * H, 1.2, 1.2);
   }
   // the dice well
@@ -170,7 +171,7 @@ export class Table {
   async _boot() {
     // Phaser text rasterises on a canvas, so the web fonts must be loaded first.
     if (document.fonts) {
-      await Promise.all(['400 20px "Lilita One"', '600 13px "Barlow Semi Condensed"', '700 13px "Barlow Semi Condensed"']
+      await Promise.all(['400 20px "Bagel Fat One"', '600 13px "Barlow Semi Condensed"', '700 13px "Barlow Semi Condensed"']
         .map((f) => document.fonts.load(f))).catch(() => {});
     }
     this.dpr = Math.min(window.devicePixelRatio || 1, 3);
@@ -185,7 +186,7 @@ export class Table {
         canvas: this.canvas,
         width: 720 * this.dpr,
         height: 640 * this.dpr,
-        backgroundColor: C.feltDeep,
+        backgroundColor: C.ground,
         banner: false,
         audio: { noAudio: true },
         // Pointer handling is done on the canvas element (see _listen): the canvas is
