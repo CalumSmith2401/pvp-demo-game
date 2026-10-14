@@ -3,38 +3,25 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#1F4BFF" />
+  <meta name="theme-color" content="#0D0B22" />
   <title>Dice game</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Bagel+Fat+One&family=Nunito:wght@700;800&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <!-- background: oversized pips drifting off the edges -->
+  <!-- background: a dim spotlight from above -->
   <div class="pips" aria-hidden="true"><i></i><i></i><i></i></div>
 
   <div id="app">
     <!-- MENU -->
     <section id="menu" class="screen">
-      <div class="hero-dice" aria-hidden="true">
-        <svg class="die die-six" viewBox="0 0 100 100">
-          <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFFFFF"/>
-          <g fill="#14204D"><circle cx="27" cy="27" r="9"/><circle cx="73" cy="27" r="9"/><circle cx="27" cy="50" r="9"/><circle cx="73" cy="50" r="9"/><circle cx="27" cy="73" r="9"/><circle cx="73" cy="73" r="9"/></g>
-        </svg>
-        <svg class="die die-one" viewBox="0 0 100 100">
-          <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFFFFF"/>
-          <circle cx="50" cy="50" r="16" fill="#FF4D4D"/>
-        </svg>
-        <svg class="die die-five" viewBox="0 0 100 100">
-          <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFD23F"/>
-          <g fill="#14204D"><circle cx="27" cy="27" r="9"/><circle cx="73" cy="27" r="9"/><circle cx="50" cy="50" r="9"/><circle cx="27" cy="73" r="9"/><circle cx="73" cy="73" r="9"/></g>
-        </svg>
-      </div>
+      <div class="hero"><img src="assets/mascot/bones-menu.png" alt="Bones the dog in dark glasses, chewing a toothpick" /></div>
+      <i class="play-ring" aria-hidden="true"></i>
+      <button id="play-btn" class="play-tag">Play</button>
       <h1 id="title"></h1>
-      <p class="tagline">Same eight rolls. Your call where they go.</p>
       <div class="menu-actions">
-        <button id="play-btn" class="primary big">Play</button>
         <div class="pair">
           <button id="howto-btn" class="outline">How to play</button>
           <button id="tutorial-btn" class="outline">Tutorial</button>

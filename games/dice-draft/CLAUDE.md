@@ -172,8 +172,11 @@ All in `engine.js`, all driven by numbers in `config.js`:
 
 ## Visual theme
 
-Arcade blue: a cobalt ground, chunky white dice, sticker-style hard shadows and one
-loud yellow. Chosen from four mockups; keep new UI in this language.
+Bad to the Bone after dark: a midnight ground (`--ground`, near-black navy) under a
+dim spotlight, chunky white dice, sticker-style hard shadows and one loud yellow.
+The user chose it after the rename, replacing the earlier cobalt "arcade blue" look;
+keep new UI in this language. Bones is the "shades" take: dark glasses, toothpick,
+studded collar.
 
 - Palette is in `:root` in `css/styles.css` and mirrored in the `C` map at the top of
   `table.js` (WebGL can't read CSS vars) — change both.
@@ -181,10 +184,12 @@ loud yellow. Chosen from four mockups; keep new UI in this language.
   `--rival` wherever it sits as text on blue). Dice keep **red 1 and 4 pips**.
 - Depth is a solid offset shadow in `--shadow`, never a soft blur: buttons, option
   cards, panels, dialogs, the menu dice and the canvas frame all use it.
-- Lilita One for titles, zone names and numerals. Nunito for DOM text. The table's
+- Bagel Fat One for titles, zone names and numerals. Nunito for DOM text. The table's
   small text stays Barlow Semi Condensed, because zone rules are long lines in narrow
   boxes and Nunito overflows them. Sentence case throughout.
-- The menu is three actions only: Play, How to play, Tutorial. Rival and table are
+- The menu is Bones nose to nose: his face fills the top of the screen
+  (`assets/mascot/bones-menu.png`, a still) and Play hangs from his collar as a
+  yellow tag, with the title under it. Three actions only: Play, How to play, Tutorial. Rival and table are
   picked on the `setup` screen after Play. Tutorial is a placeholder dialog.
 - Orange (`C.hot`) means the hot zone and nothing else. The golden die is the
   player's yellow, rendered as a gold die.
@@ -193,8 +198,7 @@ loud yellow. Chosen from four mockups; keep new UI in this language.
 - Celebration scales with the hit (`_level()` in `table.js`): Straight and Triple by
   their `celebrate` rank in config, other zones by the size of the number. The full
   yellow flash is for Triple and a match win only.
-- `prefers-reduced-motion` stops the menu dice bobbing and skips the tumble, shake
-  and particles on the table.
+- `prefers-reduced-motion` skips the tumble, shake and particles on the table.
 
 ## Gotchas
 

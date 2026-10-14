@@ -1,19 +1,22 @@
-/* Arcade blue: a cobalt ground, chunky white dice, sticker-style hard shadows and
-   one loud yellow. The canvas palette in js/table.js mirrors these values —
-   change both. */
+/* Bad to the Bone after dark: a midnight ground, chunky white dice, sticker-style
+   hard shadows and one loud yellow. The canvas palette in js/table.js mirrors
+   these values — change both. */
 :root {
-  --blue:       #1F4BFF;
-  --blue-hi:    #2F5BFF;
-  --blue-deep:  #173CD6;
-  --shadow:     #0E2A99;
+  --ground:     #0D0B22;
+  --ground-hi:  #191540;   /* the dim spotlight behind Bones */
+  --ground-glow: #2A2468;
+  --panel:      #1B1746;   /* raised surfaces: buttons, option cards */
+  --edge:       #3A3480;
+  --shadow:     #05040C;
   --ink:        #14204D;
   --white:      #FFFFFF;
-  --soft:       #DCE5FF;
+  --soft:       #C9C5E8;
   --yellow:     #FFD23F;
-  --yellow-deep: #C89A12;
+  --yellow-deep: #A37A00;
   --red:        #FF4D4D;
-  --rival:      #FFB3A6;   /* red, lightened until it reads on the blue */
-  --display: "Lilita One", "Arial Rounded MT Bold", system-ui, sans-serif;
+  --red-deep:   #C2260F;
+  --rival:      #FF8A73;   /* red, lightened until it reads on the ground */
+  --display: "Bagel Fat One", "Arial Rounded MT Bold", system-ui, sans-serif;
   --text: "Nunito", system-ui, sans-serif;
 }
 
@@ -22,7 +25,7 @@
 body {
   margin: 0;
   min-height: 100dvh;
-  background: var(--blue);
+  background: var(--ground);
   color: var(--white);
   font-family: var(--text);
   font-weight: 700;
@@ -31,12 +34,14 @@ body {
   overflow-x: hidden;
 }
 
-/* ---- background pips ---- */
+/* ---- background: a dim spotlight from above ---- */
 .pips { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
-.pips i { position: absolute; border-radius: 50%; background: var(--blue-hi); }
-.pips i:nth-child(1) { left: -90px; top: -70px; width: 240px; height: 240px; }
-.pips i:nth-child(2) { right: -110px; top: 30vh; width: 280px; height: 280px; }
-.pips i:nth-child(3) { left: -60px; bottom: -120px; width: 320px; height: 320px; background: var(--blue-deep); }
+.pips i { position: absolute; left: 50%; border-radius: 50%; transform: translateX(-50%); }
+.pips i:nth-child(1) { top: -150px; width: 520px; height: 520px; background: var(--ground-hi); }
+.pips i:nth-child(2) { top: -70px; width: 360px; height: 360px; background: var(--ground-glow); }
+.pips i:nth-child(3) { display: none; }
+/* the brighter inner light belongs to Bones on the menu */
+body:has(#menu.hidden) .pips i:nth-child(2) { display: none; }
 
 #app { position: relative; z-index: 1; max-width: 760px; margin: 0 auto; padding: 20px 20px 48px; }
 
@@ -51,7 +56,7 @@ button {
   font: inherit;
   font-weight: 800;
   color: var(--white);
-  background: var(--blue-deep);
+  background: var(--panel);
   border: 3px solid transparent;
   border-radius: 18px;
   padding: 12px 20px;
@@ -83,8 +88,8 @@ button.quiet:hover { color: var(--white); text-decoration: underline; }
 .controls { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 26px; }
 
 /* ---- menu ---- */
-/* Fills the viewport exactly: the dice take whatever height is left over, and the
-   title scales with the shorter of the screen's width and height. */
+/* Fills the viewport exactly. Bones takes whatever height is left over and fills
+   it nose to nose; Play hangs from his collar where his tag would be. */
 #menu {
   max-width: 430px;
   margin: 0 auto;
@@ -92,27 +97,43 @@ button.quiet:hover { color: var(--white); text-decoration: underline; }
   min-height: 420px;
   display: flex;
   flex-direction: column;
+  align-items: center;
 }
-.hero-dice { position: relative; flex: 1 1 0; min-height: 90px; max-height: 280px; aspect-ratio: 39 / 28; max-width: 100%; align-self: center; margin: 4px 0 8px; }
-.die { position: absolute; filter: drop-shadow(0 10px 0 var(--shadow)); animation: bob 4.2s ease-in-out infinite; }
-.die-six  { left: 4%;  top: 34%; width: 32%; --tilt: -14deg; }
-.die-one  { left: 31%; top: 0;   width: 39%; --tilt: 9deg;  animation-delay: -1.4s; }
-.die-five { left: 62%; top: 44%; width: 30%; --tilt: 21deg; animation-delay: -2.8s; }
-@keyframes bob {
-  0%, 100% { transform: translateY(0) rotate(var(--tilt)); }
-  50%      { transform: translateY(-9px) rotate(calc(var(--tilt) + 3deg)); }
+/* The artwork is square with empty margins: his head runs from 23% to 78% of its
+   height (collar at the bottom), so the image is 182% of this box and shifted up. */
+.hero { position: relative; flex: 1 1 0; min-height: 110px; width: 100%; }
+.hero img { position: absolute; left: 50%; top: -42%; height: 182%; aspect-ratio: 1; max-width: none; transform: translateX(-50%); pointer-events: none; user-select: none; }
+.play-ring { position: relative; z-index: 1; width: 26px; height: 26px; margin: -6px 0 -12px; border: 6px solid #B9BCC9; border-radius: 50%; }
+button.play-tag {
+  position: relative;
+  flex: none;
+  width: clamp(112px, 19dvh, 160px);
+  aspect-ratio: 1;
+  min-height: 0;
+  padding: 0;
+  font-family: var(--display);
+  font-weight: 400;
+  font-size: clamp(2rem, 6dvh, 3.1rem);
+  background: var(--yellow);
+  color: var(--shadow);
+  border: 5px solid var(--shadow);
+  border-radius: 24%;
+  box-shadow: 0 8px 0 var(--yellow-deep);
+  transform: rotate(-5deg);
+  transition: transform 0.06s, box-shadow 0.06s;
 }
+button.play-tag:active { transform: rotate(-5deg) translateY(6px); box-shadow: 0 2px 0 var(--yellow-deep); }
 #title {
-  font-size: clamp(2.4rem, min(16.5vw, 10.5dvh), 4.6rem);
-  line-height: 0.88;
-  letter-spacing: -1px;
-  text-shadow: 0 6px 0 var(--shadow);
+  margin-top: clamp(14px, 3dvh, 28px);
+  text-align: center;
+  font-size: clamp(2.2rem, min(15vw, 8dvh), 3.7rem);
+  line-height: 0.92;
+  color: var(--yellow);
+  text-shadow: 0 5px 0 var(--red-deep);
 }
-.tagline { margin: 14px 0 0; text-wrap: balance; font-size: clamp(1rem, 2.6dvh, 1.2rem); font-weight: 800; line-height: 1.3; color: var(--soft); }
-.menu-actions { margin-top: auto; padding-top: 20px; display: flex; flex-direction: column; gap: 16px; }
+.menu-actions { width: 100%; padding-top: clamp(14px, 3dvh, 26px); }
 .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 @media (max-height: 700px) {
-  button.primary.big { min-height: 68px; font-size: 2.1rem; }
   #menu .outline { min-height: 52px; }
 }
 
@@ -155,13 +176,13 @@ dialog {
   font-weight: 700;
   box-shadow: 0 10px 0 var(--shadow);
 }
-dialog::backdrop { background: rgba(14, 42, 153, 0.72); }
-dialog h2 { margin: 0 0 12px; font-size: 2rem; text-shadow: none; color: var(--blue); }
+dialog::backdrop { background: rgba(5, 4, 12, 0.8); }
+dialog h2 { margin: 0 0 12px; font-size: 2rem; text-shadow: none; color: var(--ground); }
 dialog ol { margin: 0 0 22px; padding-left: 1.3em; }
 dialog li { margin-bottom: 9px; }
-dialog li::marker { font-family: var(--display); color: var(--blue); }
+dialog li::marker { font-family: var(--display); color: var(--ground); }
 dialog p { margin: 0 0 22px; }
-dialog h3 { font-family: var(--display); font-weight: 400; font-size: 1.2rem; color: var(--blue); margin: 0 0 8px; }
+dialog h3 { font-family: var(--display); font-weight: 400; font-size: 1.2rem; color: var(--ground); margin: 0 0 8px; }
 dialog ul { margin: 0 0 16px; padding-left: 1.2em; }
 dialog .aside { font-size: 0.95rem; color: #3A4A8C; }
 #howto-dialog { width: min(94vw, 560px); max-height: 90dvh; overflow-y: auto; }
@@ -191,7 +212,7 @@ body.playing #app {
   max-width: min(100%, 720px);
   max-height: 100%;
   border-radius: 22px;
-  box-shadow: 0 0 0 4px var(--white), 0 12px 0 4px var(--shadow);
+  box-shadow: 0 0 0 3px var(--edge), 0 12px 0 3px var(--shadow);
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -213,7 +234,7 @@ body.playing #app {
 .power[aria-pressed="true"] { background: var(--yellow); box-shadow: 0 5px 0 var(--yellow-deep); }
 .power:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 2px 0 var(--shadow); }
 .power:disabled { cursor: default; opacity: 0.55; }
-.power.used { background: var(--blue-deep); color: var(--soft); box-shadow: none; opacity: 0.8; }
+.power.used { background: var(--panel); color: var(--soft); box-shadow: none; opacity: 0.8; }
 .hud-row { display: flex; align-items: center; gap: 8px; min-height: 44px; }
 #facts { flex: 1; display: flex; flex-wrap: wrap; gap: 2px 14px; color: var(--soft); font-size: 0.9rem; font-weight: 800; }
 #facts .good { color: var(--yellow); }
@@ -229,12 +250,12 @@ button.small { min-height: 44px; padding: 6px 14px; font-size: 0.9rem; border-ra
 
 .panel { background: var(--white); color: var(--ink); border-radius: 22px; padding: 8px 14px 12px; box-shadow: 0 8px 0 var(--shadow); }
 table.log { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
-table.log th { text-align: left; font-weight: 800; color: var(--blue); padding: 8px 6px; border-bottom: 2px solid #DCE5FF; }
+table.log th { text-align: left; font-weight: 800; color: var(--ground); padding: 8px 6px; border-bottom: 2px solid #DCE5FF; }
 table.log td { padding: 7px 6px; border-bottom: 1px solid #E8EDFF; vertical-align: middle; }
 table.log .num, table.log th.num { text-align: right; }
 table.log td.zone { font-family: var(--display); font-size: 1.15rem; }
 table.log .pts { font-family: var(--display); font-size: 1.2rem; display: inline-block; min-width: 1.6em; text-align: right; }
-table.log .won .pts { color: var(--blue); }
+table.log .won .pts { color: var(--ground); }
 table.log td.rival.won .pts { color: #D92B2B; }
 table.log .lost { opacity: 0.5; }
 table.log tfoot td { border-bottom: none; font-weight: 800; padding-top: 10px; }
@@ -271,6 +292,6 @@ table.log tr.sweep td { background: #F4F7FF; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .die { animation: none; transform: rotate(var(--tilt)); }
+  button.play-tag { transition: none; }
   button.primary { transition: none; }
 }
