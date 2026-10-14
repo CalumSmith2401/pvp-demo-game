@@ -10,7 +10,7 @@ import http from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
 import { extname, join, normalize, sep } from 'node:path';
 import { spawn } from 'node:child_process';
-import { GAMES_DIR, listGames, findGame, printGames } from './games.js';
+import { GAMES_DIR, findGame, printGames, hubHTML } from './games.js';
 
 const PORT = process.env.PORT || 5173;
 const TYPES = {
@@ -39,37 +39,6 @@ if (args[0]) {
     printGames();
     process.exit(1);
   }
-}
-
-const escape = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
-
-function hubHTML() {
-  const cards = listGames()
-    .map((g) => `<a class="game" href="/${g.id}/"><h2>${escape(g.name)}</h2><p>${escape(g.description)}</p></a>`)
-    .join('\n');
-  return `<!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Games</title>
-<style>
-  :root { --bg:#14110d; --panel:#1f1a14; --border:#5a4630; --gold:#d4a84b; --text:#e8dcc4; --muted:#a8987c; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui, sans-serif; }
-  main { max-width:720px; margin:0 auto; padding:48px 16px; }
-  h1 { color:var(--gold); font-family:Georgia, serif; letter-spacing:.04em; }
-  .game { display:block; margin:16px 0; padding:16px 20px; background:var(--panel); color:inherit;
-          text-decoration:none; border:1px solid var(--border);
-          box-shadow: inset 0 0 0 2px #0008, inset 0 0 0 3px #ffffff0d; }
-  .game:hover { border-color:var(--gold); }
-  .game h2 { margin:0 0 6px; font-family:Georgia, serif; color:var(--gold); font-size:1.2rem; }
-  .game p { margin:0; color:var(--muted); }
-</style>
-</head>
-<body><main><h1>Games</h1>
-${cards}
-</main></body>
-</html>`;
 }
 
 const server = http.createServer(async (req, res) => {
