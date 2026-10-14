@@ -9,7 +9,8 @@ import { createSolver } from './solver.js';
 import { BOTS, getBot } from './bots.js';
 import { mulberry32 } from './rng.js';
 import { Table } from './table.js';
-import { loadSounds, play, isMuted, setMuted, isMusicOn, setMusic } from './sound.js';
+import { buildBackdrop } from './backdrop.js';
+import { loadSounds, play, isMuted, setMuted, isMusicOn, setMusic, getVolume, setVolume, setMusicScene } from './sound.js';
 
 const ME = 'a';
 const RIVAL = 'b';
@@ -33,6 +34,7 @@ const $ = (sel) => document.querySelector(sel);
 const SCREENS = ['menu', 'setup', 'play', 'end'];
 function show(name) {
   SCREENS.forEach((s) => $('#' + s).classList.toggle('hidden', s !== name));
+  setMusicScene('main'); // every screen starts on the main theme; a streak or the tutorial changes it
   document.body.classList.toggle('playing', name === 'play'); // the play screen fills the viewport and never scrolls
 }
 const say = (msg) => { $('#live').textContent = msg; };
@@ -368,6 +370,7 @@ function startReveal() {
   state.turn = null;
   for (const btn of document.querySelectorAll('.power')) btn.disabled = true;
   say('All rolls placed. Scoring the zones.');
+  // A streak's music plays on through the reveal; the end screen goes back to the main theme.
   table.reveal(state.match.result(), () => { if (run === state.run) endMatch(); });
 }
 
@@ -442,8 +445,11 @@ $('#start-btn').onclick = startMatch;
 $('#rematch-btn').onclick = startMatch;
 $('#play-btn').onclick = () => show('setup');
 $('#back-btn').onclick = () => show('menu');
-$('#howto-btn').onclick = () => $('#howto-dialog').showModal();
-$('#tutorial-btn').onclick = () => $('#tutorial-dialog').showModal(); // placeholder until the tutorial exists
+// The tutorial track plays while either way of learning the game is open.
+const learn = (id) => { $(id).showModal(); setMusicScene('tutorial'); };
+$('#howto-btn').onclick = () => learn('#howto-dialog');
+$('#tutorial-btn').onclick = () => learn('#tutorial-dialog'); // placeholder until the tutorial exists
+for (const id of ['#howto-dialog', '#tutorial-dialog']) $(id).addEventListener('close', () => setMusicScene('main'));
 $('#menu-btn').onclick = () => leaveMatch('setup');
 $('#quit-btn').onclick = () => leaveMatch('menu');
 $('#skip-btn').onclick = () => table.skip();
@@ -467,9 +473,31 @@ function renderSound() {
 for (const btn of document.querySelectorAll('.sound-btn')) btn.onclick = () => { setMuted(!isMuted()); renderSound(); };
 for (const btn of document.querySelectorAll('.music-btn')) btn.onclick = () => { setMusic(!isMusicOn()); renderSound(); };
 renderSound();
+// Settings: overall, music and game-sound volumes. Turning one up also lifts a
+// switch that was silencing it; the switches stay as quick mutes.
+function renderVolumes() {
+  for (const input of document.querySelectorAll('[data-volume]')) {
+    const pct = Math.round(getVolume(input.dataset.volume) * 100);
+    input.value = pct;
+    input.style.setProperty('--fill', pct + '%');
+    input.parentElement.querySelector('output').textContent = pct + '%';
+  }
+}
+for (const input of document.querySelectorAll('[data-volume]')) {
+  const kind = input.dataset.volume;
+  input.oninput = () => {
+    setVolume(kind, input.value / 100);
+    if (input.value > 0 && isMuted()) setMuted(false);
+    if (input.value > 0 && kind === 'music' && !isMusicOn()) setMusic(true);
+    renderVolumes();
+    renderSound();
+  };
+  if (kind !== 'music') input.onchange = () => play('chips', { points: 20 }); // a sample at the new level
+}
+for (const btn of document.querySelectorAll('.settings-btn')) btn.onclick = () => { renderVolumes(); $('#settings-dialog').showModal(); };
 const KEYS = { f: 'flip', d: 'double', h: 'hold', p: 'peek' };
 document.addEventListener('keydown', (e) => {
-  if ($('#play').classList.contains('hidden') || !state.turn || e.metaKey || e.ctrlKey || e.altKey) return;
+  if ($('#play').classList.contains('hidden') || !state.turn || e.metaKey || e.ctrlKey || e.altKey || $('dialog[open]')) return;
   const key = e.key.toLowerCase();
   const n = Number(e.key);
   if (Number.isInteger(n) && n >= 1 && n <= 9) { if (!view().board[n - 1] && n <= view().board.length) tapZone(n - 1); }
@@ -478,6 +506,7 @@ document.addEventListener('keydown', (e) => {
   else if (key === 'x' && view().held) selectRoll('held');
   else if (KEYS[key] && state.variant.powers.includes(KEYS[key])) usePower(KEYS[key]);
 });
+buildBackdrop($('#yard'));
 renderBots();
 renderHowTo();
 show('menu');

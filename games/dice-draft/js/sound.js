@@ -2,15 +2,16 @@
 // points) are short recordings from Kenney's Casino Audio (CC0), trimmed and
 // converted to AAC in assets/sound/. The payoffs and warnings (chimes, the clock
 // tick, the win and lose stings) are synthesised here, so they cost no download.
-//
-// The background tune is synthesised too (see "music" below): an original slow
-// blues shuffle, scheduled a beat or two ahead on the audio clock.
+// The music is three looped tracks in assets/music/ (see "music" below).
 //
 // Web Audio only. Browsers keep audio locked until the first tap or key press, so
 // the context is resumed then. Nothing here ever throws: a browser without Web
 // Audio, a file that fails to load or a blocked context just means silence.
-// Sound (everything) and music (the tune only) are switched separately, and both
-// are remembered per device.
+//
+// The mix: game sounds → sfx ┐
+//          music tracks → musicBus (ducks) → musicOut ┴→ master → limiter → speakers
+// Settings sets three volumes (overall, music, game sounds); the sound and music
+// switches mute on top of them. All of it is remembered per device.
 
 const SAMPLES = {
   shake:   ['dice-shake-1'],
@@ -24,16 +25,27 @@ const SAMPLES = {
 };
 const MUTE_KEY = 'bad-to-the-bone:muted';
 const MUSIC_KEY = 'bad-to-the-bone:music-off';
+const VOLUME_KEY = 'bad-to-the-bone:volume';
+const MASTER = 0.8; // the master gain at full overall volume
 
 let ctx = null;
-let master = null;
+let master = null;   // overall volume, and the sound switch
+let sfx = null;      // game sounds volume
+let musicOut = null; // music volume
+let musicBus = null; // where the tracks meet; ducks under the result stings
 let muted = false;
 let musicOn = true;
+const volume = { master: 1, music: 1, sfx: 1 }; // as the sliders show them, 0 to 1
 const buffers = {}; // name → [AudioBuffer]
 try {
   muted = localStorage.getItem(MUTE_KEY) === '1';
   musicOn = localStorage.getItem(MUSIC_KEY) !== '1';
-} catch { /* storage blocked: default to sound and music on */ }
+  const saved = JSON.parse(localStorage.getItem(VOLUME_KEY) || '{}');
+  for (const k of Object.keys(volume)) if (typeof saved[k] === 'number' && saved[k] >= 0 && saved[k] <= 1) volume[k] = saved[k];
+} catch { /* storage blocked: defaults */ }
+// A slider's position to a gain. Squared, so the middle of the slider sounds like
+// the middle (half way is about −12 dB) rather than nearly full.
+const curve = (v) => v * v;
 
 function context() {
   if (ctx) return ctx;
@@ -44,8 +56,17 @@ function context() {
     if (navigator.audioSession) navigator.audioSession.type = 'ambient';
     ctx = new AC();
     master = ctx.createGain();
-    master.gain.value = muted ? 0 : 0.8;
-    master.connect(ctx.destination);
+    sfx = ctx.createGain();
+    musicOut = ctx.createGain();
+    musicBus = ctx.createGain();
+    sfx.connect(master);
+    musicBus.connect(musicOut).connect(master);
+    // A gentle limiter on the way out, so music and effects together never clip.
+    const limit = ctx.createDynamicsCompressor();
+    limit.threshold.value = -10; limit.knee.value = 6; limit.ratio.value = 6;
+    limit.attack.value = 0.003; limit.release.value = 0.2;
+    master.connect(limit).connect(ctx.destination);
+    applyLevels();
   } catch { ctx = null; }
   return ctx;
 }
@@ -66,24 +87,25 @@ for (const type of ['pointerdown', 'touchend', 'keydown']) window.addEventListen
 // Nothing plays from a background tab: suspend, and pick up again on return.
 document.addEventListener('visibilitychange', () => {
   if (!ctx) return;
-  if (document.hidden) { stopMusic(); ctx.suspend().catch(() => {}); }
+  if (document.hidden) { for (const name of Object.keys(playing)) silence(name, true); ctx.suspend().catch(() => {}); }
   else ctx.resume().then(syncMusic, () => {});
 });
 
-// Fetch and decode every sample. Called at boot, behind the menu.
-export async function loadSounds(base = 'assets/sound/') {
+// Fetch and decode every sample and track. Called at boot, behind the menu; the
+// music starts as soon as its track is in (and audio is unlocked).
+export async function loadSounds(base = 'assets/') {
   const c = context();
   if (!c) return;
+  const decode = (url) => fetch(url)
+    .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
+    .then((data) => new Promise((ok, fail) => c.decodeAudioData(data, ok, fail)));
   const jobs = [];
+  for (const [name, t] of Object.entries(TRACKS)) {
+    jobs.push(decode(`${base}music/${t.file}.m4a`).then((buf) => { tracks[name] = buf; syncMusic(); }).catch(() => {}));
+  }
   for (const [name, files] of Object.entries(SAMPLES)) {
     buffers[name] = [];
-    for (const f of files) {
-      jobs.push(fetch(base + f + '.m4a')
-        .then((r) => (r.ok ? r.arrayBuffer() : Promise.reject(new Error(r.status))))
-        .then((data) => new Promise((ok, fail) => c.decodeAudioData(data, ok, fail)))
-        .then((buf) => buffers[name].push(buf))
-        .catch(() => {}));
-    }
+    for (const f of files) jobs.push(decode(`${base}sound/${f}.m4a`).then((buf) => buffers[name].push(buf)).catch(() => {}));
   }
   await Promise.all(jobs);
 }
@@ -92,7 +114,7 @@ export const isMuted = () => muted;
 export function setMuted(on) {
   muted = !!on;
   try { localStorage.setItem(MUTE_KEY, muted ? '1' : '0'); } catch { /* not remembered, still applies */ }
-  if (master) master.gain.setTargetAtTime(muted ? 0 : 0.8, ctx.currentTime, 0.02);
+  applyLevels();
   syncMusic();
 }
 
@@ -103,7 +125,25 @@ export function setMusic(on) {
   syncMusic();
 }
 
-const ready = () => ctx && ctx.state === 'running' && !muted;
+// Volumes, 0 to 1, by kind: 'master' (overall), 'music' or 'sfx' (game sounds).
+export const getVolume = (kind) => volume[kind];
+export function setVolume(kind, value) {
+  if (!(kind in volume)) return;
+  volume[kind] = Math.min(1, Math.max(0, Number(value) || 0));
+  try { localStorage.setItem(VOLUME_KEY, JSON.stringify(volume)); } catch { /* not remembered, still applies */ }
+  applyLevels();
+  syncMusic();
+}
+
+function applyLevels() {
+  if (!ctx) return;
+  const t = ctx.currentTime;
+  master.gain.setTargetAtTime(muted ? 0 : MASTER * curve(volume.master), t, 0.02);
+  sfx.gain.setTargetAtTime(curve(volume.sfx), t, 0.02);
+  musicOut.gain.setTargetAtTime(curve(volume.music), t, 0.02);
+}
+
+const ready = () => ctx && ctx.state === 'running' && !muted && volume.sfx > 0;
 const pick = (list) => list[Math.floor(Math.random() * list.length)];
 
 // One recorded sample: a random take, slightly detuned so repeats don't sound canned.
@@ -118,13 +158,13 @@ function sample(name, { vol = 1, rate = 1, delay = 0, from = 0, dur = 0 } = {}) 
   const t = ctx.currentTime + delay;
   g.gain.value = vol;
   if (dur) { g.gain.setValueAtTime(vol, t + dur * 0.7); g.gain.linearRampToValueAtTime(0, t + dur); }
-  src.connect(g).connect(master);
+  src.connect(g).connect(sfx);
   src.start(t, from);
   if (dur) src.stop(t + dur + 0.02);
 }
 
 // One synthesised note: an oscillator through a short envelope.
-function note(freq, { at = 0, when = null, len = 0.14, vol = 0.18, type = 'triangle', to = null, attack = 0.005, filter = 0, out: dest = master } = {}) {
+function note(freq, { at = 0, when = null, len = 0.14, vol = 0.18, type = 'triangle', to = null, attack = 0.005, filter = 0 } = {}) {
   const t = when ?? ctx.currentTime + at;
   const osc = ctx.createOscillator();
   osc.type = type;
@@ -136,7 +176,7 @@ function note(freq, { at = 0, when = null, len = 0.14, vol = 0.18, type = 'trian
   g.gain.exponentialRampToValueAtTime(0.0001, t + len);
   let out = osc.connect(g);
   if (filter) { const f = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = filter; out = out.connect(f); }
-  out.connect(dest);
+  out.connect(sfx);
   osc.start(t);
   osc.stop(t + len + 0.05);
 }
@@ -191,121 +231,87 @@ export function play(name, opts = {}) {
 }
 
 // ---------- music ----------
-// An original 12-bar blues shuffle in C at an easy 92 bpm: boogie bass, brushed
-// kit, a soft electric-piano stab on the offbeats, and a short lick into the
-// turnaround every other time round. It is in C so the chimes (C major) sit on it.
-// Scheduled ahead on the audio clock in small batches, so timers firing late never
-// make it stagger.
-const BPM = 92;
-const BEAT = 60 / BPM;
-const SWING = 2 / 3;                                // the offbeat eighth lands two-thirds through the beat
-const BARS = [0, 5, 0, 0, 5, 5, 0, 0, 7, 5, 0, 7];  // chord roots, semitones above C (quick change in bar 2)
-const BOOGIE = [0, 4, 7, 9, 10, 9, 7, 4];           // bass, one note per swung eighth
-const LICK = [[0, 10], [1, 7], [2, 6], [3, 5], [4, 3], [6, 0]]; // [eighth, interval] down the blues scale
-const midi = (m) => 440 * 2 ** ((m - 69) / 12);
-const MUSIC_LEVEL = 0.3; // about −40 dB RMS: under the effects, which peak around −30 to −38
+// Three looped tracks, each exactly 32 beats so it repeats with no seam: the main
+// theme (the menu and most of a match), a faster one while the player is on a
+// streak, and a calmer one for the tutorial and How to play. The game names the
+// scene with setMusicScene(); one track is heard at a time and a change crossfades.
+// The main theme keeps running silently under the others, so when it comes back
+// it carries on where it left off; the others start from the top each time.
+// At full volume the main theme and the streak track sit near −31 dB RMS, just
+// under the effects (the user found −40 too quiet on a phone; Settings can raise
+// it). The tutorial track is sparse, so its average sits lower while its loud
+// passages match the main theme.
+const beats = (n, bpm) => (n * 60) / bpm;
+const TRACKS = {
+  main:     { file: 'main-menu', secs: beats(32, 108), level: 0.17, fadeIn: 0.5 },
+  streak:   { file: 'streak',    secs: beats(32, 132), level: 0.14, fadeIn: 0.12 },
+  tutorial: { file: 'tutorial',  secs: beats(32, 92),  level: 0.24, fadeIn: 0.3 },
+};
+const tracks = {};  // name → AudioBuffer, once loaded
+const playing = {}; // name → { src, gain } while it runs
+let scene = 'main';
 
-let musicBus = null;
-let noise = null;
-let musicTimer = null;
-let tuneStart = 0; // audio time the tune began
-let eighth = 0;    // the next eighth to schedule, counted from the start
+export function setMusicScene(name) {
+  if (!TRACKS[name] || name === scene) return;
+  scene = name;
+  syncMusic();
+}
 
-function hit(when, { vol, len, band, type = 'bandpass', q = 1 }) {
+// The track's player, started (silent) if it isn't running.
+function voice(name) {
+  if (playing[name]) return playing[name];
+  const t = TRACKS[name], buf = tracks[name];
+  if (!buf) return null;
   const src = ctx.createBufferSource();
-  src.buffer = noise;
-  const f = ctx.createBiquadFilter();
-  f.type = type; f.frequency.value = band; f.Q.value = q;
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(vol, when);
-  g.gain.exponentialRampToValueAtTime(0.0001, when + len);
-  src.connect(f).connect(g).connect(musicBus);
-  src.start(when, Math.random() * 0.5);
-  src.stop(when + len + 0.02);
+  src.buffer = buf;
+  src.loop = true;
+  // Browsers drop the AAC encoder's 2112-frame lead-in when decoding (Chrome does,
+  // measured). One that kept it would loop a gap, so loop past it.
+  const lead = buf.duration > t.secs + 0.01 ? 2112 / 22050 : 0;
+  src.loopStart = lead;
+  src.loopEnd = lead + t.secs;
+  const gain = ctx.createGain();
+  gain.gain.value = 0;
+  src.connect(gain).connect(musicBus);
+  src.start(ctx.currentTime + 0.02, lead);
+  return (playing[name] = { src, gain });
 }
 
-function kick(when) {
-  const osc = ctx.createOscillator();
-  osc.frequency.setValueAtTime(110, when);
-  osc.frequency.exponentialRampToValueAtTime(42, when + 0.14);
-  const g = ctx.createGain();
-  g.gain.setValueAtTime(0.5, when);
-  g.gain.exponentialRampToValueAtTime(0.0001, when + 0.22);
-  osc.connect(g).connect(musicBus);
-  osc.start(when);
-  osc.stop(when + 0.25);
+function fadeTo(p, level, tc) {
+  const g = p.gain.gain, t = ctx.currentTime;
+  g.cancelScheduledValues(t);
+  g.setValueAtTime(g.value, t);
+  g.setTargetAtTime(level, t, tc);
 }
 
-// A soft electric piano: a sine with a quieter octave above, quick to fade.
-function keys(when, root) {
-  for (const iv of [4, 10, 14]) { // the 3rd, flat 7th and 9th: a dominant-ninth colour
-    const f = midi(60 + root + iv - 12 * (root >= 5 ? 1 : 0));
-    note(f, { when, len: 0.32, vol: 0.045, type: 'sine', out: musicBus });
-    note(f * 2, { when, len: 0.12, vol: 0.012, type: 'sine', out: musicBus });
-  }
+// Fade a track out and stop it (`now`: stop it dead).
+function silence(name, now = false) {
+  const p = playing[name];
+  if (!p) return;
+  delete playing[name];
+  if (now) { p.src.stop(); return; }
+  fadeTo(p, 0, 0.25);
+  p.src.stop(ctx.currentTime + 1.5);
 }
 
-function scheduleEighth(when, n) {
-  const bar = Math.floor(n / 8) % 12, step = n % 8, chorus = Math.floor(n / 96);
-  const root = BARS[bar];
-  // bass: sawtooth through a low filter, so its upper harmonics carry on a phone speaker
-  note(midi(36 + root + BOOGIE[step]), { when, len: BEAT * 0.55, vol: 0.16, type: 'sawtooth', filter: 650, out: musicBus });
-  if (step === 0 || step === 4) kick(when);
-  if (step === 2 || step === 6) hit(when, { vol: 0.12, len: 0.16, band: 1900, q: 0.7 }); // brushed snare
-  hit(when, { vol: step % 2 ? 0.035 : 0.05, len: 0.04, band: 8000, type: 'highpass' });  // hat on every eighth
-  if (step === 3 || step === 7) keys(when, root);
-  if (bar === 11 && chorus % 2 === 1) {
-    for (const [at, iv] of LICK) if (at === step) note(midi(72 + iv), { when, len: BEAT * 0.5, vol: 0.06, type: 'triangle', out: musicBus });
-  }
-}
-
-// When eighth `n` sounds: on the beat, or two-thirds of the way through it (swung).
-const timeOf = (n) => tuneStart + Math.floor(n / 2) * BEAT + (n % 2 ? SWING * BEAT : 0);
-
-function pump() {
-  if (timeOf(eighth) < ctx.currentTime - 0.1) tuneStart += ctx.currentTime + 0.05 - timeOf(eighth); // after a stall, pick up from now
-  while (timeOf(eighth) < ctx.currentTime + 0.25) scheduleEighth(timeOf(eighth), eighth++);
-}
-
-function startMusic() {
-  if (musicTimer || !ctx) return;
-  if (!musicBus) {
-    musicBus = ctx.createGain();
-    musicBus.connect(master);
-    noise = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
-    const d = noise.getChannelData(0);
-    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
-  }
-  musicBus.gain.cancelScheduledValues(ctx.currentTime);
-  musicBus.gain.setValueAtTime(0, ctx.currentTime);
-  musicBus.gain.linearRampToValueAtTime(MUSIC_LEVEL, ctx.currentTime + 1.5); // fade in
-  tuneStart = ctx.currentTime + 0.1;
-  eighth = 0;
-  musicTimer = setInterval(() => { try { pump(); } catch { stopMusic(); } }, 60);
-  pump();
-}
-
-function stopMusic() {
-  if (!musicTimer) return;
-  clearInterval(musicTimer);
-  musicTimer = null;
-  musicBus.gain.cancelScheduledValues(ctx.currentTime);
-  musicBus.gain.setTargetAtTime(0, ctx.currentTime, 0.15);
-}
-
-// Music plays when it is switched on, sound isn't muted and audio is unlocked.
+// Music plays when it is switched on and turned up, sound isn't muted, audio is
+// unlocked and the tab is in front.
 function syncMusic() {
   try {
-    if (ctx && ctx.state === 'running' && musicOn && !muted && !document.hidden) startMusic();
-    else stopMusic();
+    const on = ctx && ctx.state === 'running' && musicOn && !muted && !document.hidden && volume.music > 0 && volume.master > 0;
+    for (const name of Object.keys(TRACKS)) {
+      const p = on && (name === scene || name === 'main') ? voice(name) : null;
+      if (p) fadeTo(p, name === scene ? TRACKS[name].level : 0, name === scene ? TRACKS[name].fadeIn : 0.25);
+      else silence(name);
+    }
   } catch { /* silence */ }
 }
 
-// Drop the tune under a result sting, then bring it back.
+// Drop the music under a result sting, then bring it back.
 function duck(seconds) {
-  if (!musicTimer) return;
+  if (!musicBus) return;
   const g = musicBus.gain, t = ctx.currentTime;
   g.cancelScheduledValues(t);
-  g.setTargetAtTime(MUSIC_LEVEL * 0.25, t, 0.08);
-  g.setTargetAtTime(MUSIC_LEVEL, t + seconds, 0.6);
+  g.setTargetAtTime(0.25, t, 0.08);
+  g.setTargetAtTime(1, t + seconds, 0.6);
 }

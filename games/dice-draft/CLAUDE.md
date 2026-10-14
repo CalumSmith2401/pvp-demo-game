@@ -48,10 +48,12 @@ js/solver.js      createSolver(): exact expected-points DP for one table
 js/bots.js        BOTS — five opponents, random → solver + Hold/Peek search
 js/table.js       Table (public API) + TableScene (Phaser): the whole play surface
 js/game.js        controller: DOM, HUD, turn timer, bot pacing, what a tap means
-js/sound.js       Web Audio: recorded dice/chip samples, synthesised chimes and stings, the background tune, switches
+js/sound.js       Web Audio: recorded dice/chip samples, synthesised chimes and stings, the music tracks, volumes
+js/backdrop.js    the page background (Bones' junkyard), built as DOM + inline SVG at boot
 assets/           pre-rendered dice sheets (white and gold): roll, faces, flip; dice-roll.json
 assets/mascot/    Bones the dealer: one sprite sheet per clip, described by bones.json
 assets/sound/     dice and chip samples (Kenney Casino Audio, CC0) as AAC .m4a; see CREDITS.txt
+assets/music/     the three looped music tracks (main theme, streak, tutorial) as AAC .m4a
 design/mascots/   mascot concept art from the render pipeline; drafts, not loaded by the game
 sim/play.js       headless match runner (bots through match.js), solver cache per table
 sim/balance.js    balance simulator → BALANCE.md
@@ -173,8 +175,8 @@ All in `engine.js`, all driven by numbers in `config.js`:
 
 ## Visual theme
 
-Bad to the Bone after dark: a midnight ground (`--ground`, near-black navy) under a
-dim spotlight, chunky white dice, sticker-style hard shadows and one loud yellow.
+Bad to the Bone after dark: a midnight ground (`--ground`, near-black navy), Bones'
+junkyard behind everything, chunky white dice, sticker-style hard shadows and one loud yellow.
 The user chose it after the rename, replacing the earlier cobalt "arcade blue" look;
 keep new UI in this language. Bones is the "shades" take: dark glasses, toothpick,
 studded collar.
@@ -200,6 +202,15 @@ studded collar.
   their `celebrate` rank in config, other zones by the size of the number. The full
   yellow flash is for Triple and a match win only.
 - `prefers-reduced-motion` skips the tumble, shake and particles on the table.
+- **The background is Bones' junkyard** (`js/backdrop.js`, styles under "the
+  junkyard" in `css/styles.css`), chosen by the user over a den, a doghouse and a
+  rainy alley: a bent corrugated fence with barbed wire and scrap behind it, a burn
+  barrel (flames, embers, firelight), a tyre stack, his tag sprayed on the fence, a
+  swinging crane hook, drifting smoke; "Beware of dog" on screens 900px and wider.
+  It is fixed behind `#app`, positioned in % and vh so it fits every window, with
+  tweaks for short landscape screens. It costs no download, its animations move only
+  transform and opacity, and `prefers-reduced-motion` stills them. The fence panels'
+  bends come from a fixed seed, so it looks the same every visit.
 
 ## Sound
 
@@ -217,13 +228,30 @@ trimmed of leading silence and converted to AAC so older iPhone Safari can play 
 - Audio stays locked until the first tap (browser rule); `sound.js` resumes it on
   the first pointer or key event. On iOS it asks for an 'ambient' session so the
   silent switch mutes the game and the player's music keeps playing.
-- **The background tune** is an original 12-bar blues shuffle in C at 92 bpm (boogie
-  bass, brushed kit, electric-piano offbeats, a lick every other chorus), synthesised
-  and scheduled a quarter-second ahead on the audio clock. It is in C so the C-major
-  chimes sit on it, and it ducks under the win/lose stings. It must not quote the
-  George Thorogood song the game is named after. Its level (`MUSIC_LEVEL`) puts it
-  near −40 dB RMS, under the effects. It stops in a background tab.
-- Sound (everything) and music (the tune only) are separate switches, each per device
+- **Music** is three looped tracks in `assets/music/`, supplied by the game's author as WAV
+  and converted with `afconvert -f m4af -d aac -b 96000`. Each is exactly 32 beats
+  (main theme 108 bpm, streak 132, tutorial 92), so it loops with no seam; Chrome
+  decodes the AAC sample-exact (measured), and `voice()` loops past the encoder's
+  lead-in if a browser keeps it. Replacing a track means keeping it a whole number
+  of bars and updating its `secs` in `TRACKS`.
+- **Which track plays** is a scene, set with `setMusicScene()`: `'main'` on every
+  screen (`show()` resets to it), `'streak'` from the moment the player's streak
+  reaches 3 (`_landed()` in `table.js`, in step with the dealer's streak pose) until
+  it breaks or the end screen, and `'tutorial'` while How to play or Tutorial is
+  open. A change crossfades. The main theme keeps running silently under the others
+  so it resumes where it left off. Music ducks under the win/lose stings and stops
+  in a background tab.
+- Levels (`TRACKS[].level`) put the main and streak tracks near −31 dB RMS at full
+  volume, just under the effects (the user found −40 too quiet on a phone); the
+  tutorial track is sparse and averages lower. A limiter on the output keeps music
+  and effects together from clipping.
+- **Settings** (the sliders button beside the switches, on the menu and under the
+  table) has three volumes: overall (the master gain), music and game sounds (their
+  own buses). Sliders are squared into gains so half way sounds like half. They are
+  stored together in localStorage (`bad-to-the-bone:volume`). Moving a slider up
+  also lifts a switch that was silencing it. Game keys are ignored while a dialog is
+  open, so arrow keys move a slider rather than pick a roll.
+- Sound (everything) and music are also quick switches, each per device
   (localStorage), shown by every `.sound-btn` / `.music-btn` (menu corner, the row
   under the table). Nothing in `sound.js` may throw: no Web Audio, a failed
   fetch or a locked context just means silence.

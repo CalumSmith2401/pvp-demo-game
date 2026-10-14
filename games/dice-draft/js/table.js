@@ -10,7 +10,7 @@
 // clock (this.time / this.tweens), so skip() can fast-forward it by time scale.
 
 import * as Phaser from 'phaser';
-import { play } from './sound.js';
+import { play, setMusicScene } from './sound.js';
 
 // Must stay in sync with the palette in css/styles.css (WebGL can't read CSS vars).
 // felt = the table, line = printed linework, gold = you, rival = them.
@@ -1128,6 +1128,7 @@ class TableScene extends Phaser.Scene {
     this._award(px, py - 6, points, this.youTotal, C.gold, () => this._countTo(this.youTotal, from, from + points));
     // the dealer has an opinion
     this._react(e.streak >= 3 ? 'streak' : 'idle'); // what he settles into afterwards
+    setMusicScene(e.streak >= 3 ? 'streak' : 'main'); // and the band follows him
     if (!points) { this._react('wince'); this._say(e.streak === 0 && from ? 'Ouch. Streak over' : 'Nothing there', true); }
     else if (cell.zone.celebrate >= 3) { this._react('celebrate'); this._say(`${cell.zone.name}! ${points}`, true); }
     else if (e.streak >= 3) { this._react('cheer'); this._say(`${e.streak} in a row!`, true); }
