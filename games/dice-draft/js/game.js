@@ -9,6 +9,7 @@ import { createSolver } from './solver.js';
 import { BOTS, getBot } from './bots.js';
 import { mulberry32 } from './rng.js';
 import { Table } from './table.js';
+import { loadSounds, play, isMuted, setMuted } from './sound.js';
 
 const ME = 'a';
 const RIVAL = 'b';
@@ -24,6 +25,7 @@ const state = {
   botTimer: null,
   turn: null,      // what the player has set up this turn (see newTurn)
   clock: 0,        // milliseconds of thinking time the player has left this match
+  ticked: null,    // the last whole second the clock ticked aloud
 };
 
 let table = null;
@@ -160,6 +162,8 @@ function startTimer() {
 
 function showClock() {
   const secs = Math.ceil(state.clock / 1000);
+  if (secs <= CLOCK_WARNING_SECONDS && secs > 0 && secs !== state.ticked) play('tick', { final: secs <= 5 });
+  state.ticked = secs;
   table.setTimer(state.clock / (MATCH_SECONDS * 1000), {
     label: `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')}`,
     urgent: secs <= CLOCK_WARNING_SECONDS,
@@ -185,6 +189,7 @@ function selectRoll(source) {
   if (!t || t.locked) return;
   if (source === 'held' && (!v.held || t.stage)) return;
   if (t.flip && source !== t.flip.group) { table.flip(t.flip.group, t.flip.die); t.flip = null; } // a flip belongs to its roll
+  if (t.sel !== source) play('grab');
   t.sel = source;
   table.setSelection(source);
   updateHud();
@@ -224,10 +229,10 @@ function tapZone(zone) {
 const POWER_ACTIONS = {
   flip() {
     const t = state.turn;
-    if (t.flip) { table.flip(t.flip.group, t.flip.die); t.flip = null; } else t.flipMode = !t.flipMode;
+    if (t.flip) { table.flip(t.flip.group, t.flip.die); t.flip = null; } else { t.flipMode = !t.flipMode; play(t.flipMode ? 'power' : 'unpower'); }
     table.setFlipMode(t.flipMode);
   },
-  double() { state.turn.double = !state.turn.double; },
+  double() { state.turn.double = !state.turn.double; play(state.turn.double ? 'power' : 'unpower'); },
   hold() {
     const t = state.turn;
     if (typeof t.sel !== 'number') { table.nudge('Pick the roll you want to hold'); return; }
@@ -442,6 +447,18 @@ $('#tutorial-btn').onclick = () => $('#tutorial-dialog').showModal(); // placeho
 $('#menu-btn').onclick = () => leaveMatch('setup');
 $('#quit-btn').onclick = () => leaveMatch('menu');
 $('#skip-btn').onclick = () => table.skip();
+// The sound switch appears on the menu and under the table; both show the same state.
+const SPEAKER = '<path d="M4 9h4l5-4v14l-5-4H4z"/>';
+function renderSound() {
+  const on = !isMuted();
+  for (const btn of document.querySelectorAll('.sound-btn')) {
+    btn.setAttribute('aria-pressed', String(on));
+    btn.title = on ? 'Sound on' : 'Sound off';
+    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}${on ? '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>' : '<path d="M17 9.5l5 5M22 9.5l-5 5"/>'}</svg>`;
+  }
+}
+for (const btn of document.querySelectorAll('.sound-btn')) btn.onclick = () => { setMuted(!isMuted()); renderSound(); };
+renderSound();
 const KEYS = { f: 'flip', d: 'double', h: 'hold', p: 'peek' };
 document.addEventListener('keydown', (e) => {
   if ($('#play').classList.contains('hidden') || !state.turn || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -459,6 +476,7 @@ show('menu');
 // The table boots and fetches its artwork behind the menu, so it is ready by the
 // time a match starts.
 table = new Table($('#table'));
+loadSounds();
 table.onSelect = selectRoll;
 table.onDie = tapDie;
 table.onZone = tapZone;

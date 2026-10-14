@@ -91,6 +91,7 @@ button.quiet:hover { color: var(--white); text-decoration: underline; }
 /* Fills the viewport exactly. Bones takes whatever height is left over and fills
    it nose to nose; Play hangs from his collar where his tag would be. */
 #menu {
+  position: relative;
   max-width: 430px;
   margin: 0 auto;
   height: calc(100dvh - 68px);
@@ -246,6 +247,12 @@ body.playing #app {
 #facts .good { color: var(--yellow); }
 #facts .lost { opacity: 0.6; text-decoration: line-through; }
 button.small { min-height: 44px; padding: 6px 14px; font-size: 0.9rem; border-radius: 14px; flex: none; }
+/* The sound switch: a speaker, struck through when off. On the menu it sits in the
+   top-right corner over Bones; under the table it sits beside Skip and Leave. */
+button.sound-btn { display: grid; place-items: center; width: 44px; min-width: 44px; padding: 0; color: var(--soft); background: transparent; }
+button.sound-btn svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+button.sound-btn[aria-pressed="true"] { color: var(--white); }
+#menu > .sound-btn { position: absolute; top: 0; right: 0; z-index: 2; min-height: 44px; height: 44px; border-radius: 50%; background: rgba(13, 11, 34, 0.55); }
 
 /* ---- result ---- */
 #end { max-width: 620px; margin: 0 auto; }

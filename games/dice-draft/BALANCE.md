@@ -9,9 +9,9 @@ Win / draw / loss figures are from the first-named player's side.
 | Check | Result | Headline |
 |---|---|---|
 | 1. Solver beats random | PASS | wins 100.0%, mean gap +153.6 pts |
-| 2. Solver beats greedy | PASS | wins 79.3%, loses 19.6%, mean gap +20.0 pts |
+| 2. Solver beats greedy | PASS | wins 79.5%, loses 19.3%, mean gap +20.1 pts |
 | 3. No dominant zone or extra | PASS | the best zone earns 1.7× an average zone's points when dealt, the weakest 0.6×; the largest extra is 18% of all points |
-| 4. Mirror match is not a tie | NOTE | identical solvers draw 100% (by construction); the bot that also uses Hold and Peek beats the plain solver 21.9% to 10.0% |
+| 4. Mirror match is not a tie | NOTE | identical solvers draw 100% (by construction); the bot that also uses Hold and Peek beats the plain solver 21.5% to 10.0% |
 | 5. No seat advantage | PASS | swapping seats mirrors results exactly; random-vs-random seat A 49.7% vs seat B 49.8% |
 
 Read these before relying on the table:
@@ -30,37 +30,37 @@ Read these before relying on the table:
 
 | Pairing | Win / draw / loss | Mean score | Mean gap | Win rate across 10 batches |
 |---|---|---|---|---|
-| Solver vs random | 100.0% / 0.0% / 0.0% | 204.3 vs 50.8 | +153.6 (sd 29.4) | 100.0% – 100.0% |
+| Solver vs random | 100.0% / 0.0% / 0.0% | 204.6 vs 51.1 | +153.6 (sd 29.4) | 100.0% – 100.0% |
 
-The solver's own expected score ranges from 174.6 to 204.6 across the 50 tables (mean 189.9),
+The solver's own expected score ranges from 175.2 to 204.6 across the 50 tables (mean 190.2),
 before bounties. Both players always share a table, so a rich or poor deal favours neither.
 
 ## 2. Solver vs greedy, and the skill ladder
 
 | Pairing | Win / draw / loss | Share of decided games | Mean score | Mean gap |
 |---|---|---|---|---|
-| Solver vs greedy | 79.3% / 1.2% / 19.6% | 80.2% | 195.5 vs 175.5 | +20.0 (sd 24.0) |
+| Solver vs greedy | 79.5% / 1.2% / 19.3% | 80.5% | 195.9 vs 175.8 | +20.1 (sd 24.0) |
 
 Each bot against the tier below it. The ladder is monotonic: better decisions win.
 
 | Stronger | Weaker | Matches | Win / draw / loss | Share of decided games | Mean gap |
 |---|---|---|---|---|---|
-| 2 Regular | 1 Tourist | 40,000 | 100.0% / 0.0% / 0.0% | 100.0% | +133.1 |
-| 3 Grinder | 2 Regular | 40,000 | 50.8% / 14.9% / 34.3% | 59.7% | +5.5 |
-| 4 Shark | 3 Grinder | 40,000 | 74.5% / 3.1% / 22.4% | 76.9% | +14.4 |
-| 5 The House | 4 Shark | 20,000 | 21.9% / 68.2% / 10.0% | 68.7% | +1.0 |
+| 2 Regular | 1 Tourist | 40,000 | 100.0% / 0.0% / 0.0% | 100.0% | +133.0 |
+| 3 Grinder | 2 Regular | 40,000 | 50.8% / 15.0% / 34.3% | 59.7% | +5.5 |
+| 4 Shark | 3 Grinder | 40,000 | 74.8% / 3.1% / 22.1% | 77.2% | +14.6 |
+| 5 The House | 4 Shark | 20,000 | 21.5% / 68.6% / 10.0% | 68.3% | +1.0 |
 
 Tourist = random with no power-ups. Regular = greedy. Grinder = greedy net of each zone's average payout.
 Shark = the solver. The House = the solver plus Hold and Peek.
 
 ## 3. Where the points come from (solver play)
 
-20,000 matches. Mean score 195.4.
+20,000 matches. Mean score 195.7.
 
 | Source | Mean pts per match | Share |
 |---|---|---|
-| Zone payouts | 77.6 | 39.7% |
-| Golden die | 32.0 | 16.4% |
+| Zone payouts | 77.9 | 39.8% |
+| Golden die | 32.0 | 16.3% |
 | Hot zone and Double (the extra 1×) | 35.4 | 18.1% |
 | Streak | 23.7 | 12.1% |
 | Sweeps | 21.1 | 10.8% |
@@ -81,20 +81,20 @@ Zones, when dealt (each is on the table in about 8 matches in 14):
 
 | Zone | Rule | Pays | Mean pts when dealt | Left blank | Mean turn filled |
 |---|---|---|---|---|---|
-| Triple | All 3 dice match | 18 pts | 36.7 | 18.7% | 4.2 |
-| Total | Any roll — never zero | Pays the total | 32.3 | 0.0% | 6.1 |
-| Straight | 3 in a row, e.g. 2-3-4 | 15 pts | 28.4 | 7.5% | 3.8 |
-| High Pair | A pair of 4s, 5s or 6s | 14 pts | 26.6 | 2.8% | 3.6 |
-| Bullseye | Total exactly 10 or 11 | 12 pts | 21.1 | 2.1% | 3.5 |
-| Big | Total 11–17, no triple | 2 pts per pip over 10 | 20.5 | 1.2% | 4.3 |
-| Double | Any two dice match | 10 pts | 18.4 | 1.3% | 4.5 |
-| Small | Total 4–10, no triple | 2 pts per pip under 11 | 17.5 | 1.5% | 4.5 |
+| Triple | All 3 dice match | 18 pts | 36.6 | 18.6% | 4.2 |
+| Total | Any roll — never zero | Pays the total | 32.0 | 0.0% | 6.1 |
+| Straight | 3 in a row, e.g. 2-3-4 | 15 pts | 28.2 | 7.6% | 3.8 |
+| High Pair | A pair of 4s, 5s or 6s | 14 pts | 26.5 | 2.8% | 3.6 |
+| Big | Total 11–18 | 2 pts per pip over 10 | 21.6 | 1.1% | 4.4 |
+| Bullseye | Total exactly 10 or 11 | 12 pts | 21.1 | 2.1% | 3.4 |
+| Double | Any two dice match | 10 pts | 18.4 | 1.4% | 4.5 |
+| Small | Total 3–10 | 2 pts per pip under 11 | 17.8 | 1.6% | 4.5 |
 | Evens | Each even die | 3 pts per even die | 17.1 | 0.3% | 5.7 |
-| Odds | Each odd die | 3 pts per odd die | 15.9 | 0.4% | 5.8 |
+| Odds | Each odd die | 3 pts per odd die | 15.9 | 0.5% | 5.8 |
 | Lucky 7 | Two dice add up to 7 | 8 pts | 15.8 | 0.8% | 3.6 |
-| Rainbow | All 3 dice different | 6 pts | 14.2 | 1.2% | 4.7 |
-| Sixes | Each 6 rolled | 4 pts per 6 | 13.9 | 2.0% | 4.2 |
-| Ones | Each 1 rolled | 4 pts per 1 | 12.6 | 1.7% | 4.1 |
+| Rainbow | All 3 dice different | 6 pts | 14.2 | 1.3% | 4.7 |
+| Sixes | Each 6 rolled | 4 pts per 6 | 13.8 | 1.8% | 4.1 |
+| Ones | Each 1 rolled | 4 pts per 1 | 12.5 | 1.7% | 4.1 |
 
 "Mean pts" includes the golden die, multipliers and streak landing on that zone, so it is not the pay
 table value. Triple and Straight are the hold-open zones: filled late and often for nothing, as intended.
@@ -104,7 +104,7 @@ table value. Triple and Straight are the hold-open zones: filled late and often 
 | Pairing | Matches | Win / draw / loss | Share of decided games |
 |---|---|---|---|
 | Solver vs solver (identical policy) | 20,000 | 0.0% / 100.0% / 0.0% | – |
-| The House vs solver | 20,000 | 21.9% / 68.2% / 10.0% | 68.7% |
+| The House vs solver | 20,000 | 21.5% / 68.6% / 10.0% | 68.3% |
 | The House vs The House | 5,000 | 0.0% / 100.0% / 0.0% | – |
 
 Equal totals are broken by zones won. In solver-vs-greedy play 2.6% of matches finish level on points
@@ -114,20 +114,20 @@ and 1.2% remain drawn after the tie-break.
 
 | Pairing | Seat A wins | Draw | Seat B wins |
 |---|---|---|---|
-| Solver (A) vs The House (B) | 9.5% | 68.4% | 22.1% |
-| The House (A) vs solver (B), same seeds | 22.1% | 68.4% | 9.5% |
+| Solver (A) vs The House (B) | 9.4% | 68.8% | 21.8% |
+| The House (A) vs solver (B), same seeds | 21.8% | 68.8% | 9.4% |
 | Random (A) vs random (B) | 49.7% | 0.5% | 49.8% |
 
 Both seats receive the same table and the same rolls, and the scoring, bounty and tie-break code has no
 seat-dependent branch. The deterministic pairing mirrors exactly when seats are swapped. Random-vs-random
-seat skew is -0.16 percentage points, against a 3σ noise band of ±0.95.
+seat skew is -0.15 percentage points, against a 3σ noise band of ±0.95.
 
 ## Arcade against the original game
 
 | Rules | Solver vs random | Solver vs greedy (W / D / L) | Greedy scores | Solver vs Grinder (W / D / L) | Grinder scores |
 |---|---|---|---|---|---|
-| Classic (no extras) | 98.8% | 70.2% / 11.8% / 17.9% | 94% of solver | 26.0% / 56.9% / 17.1% | 99% of solver |
-| Arcade | 100.0% | 79.3% / 1.2% / 19.6% | 90% of solver | 74.5% / 3.1% / 22.4% | 93% of solver |
+| Classic (no extras) | 98.8% | 70.6% / 11.9% / 17.5% | 94% of solver | 27.2% / 53.6% / 19.2% | 99% of solver |
+| Arcade | 100.0% | 79.5% / 1.2% / 19.3% | 90% of solver | 74.8% / 3.1% / 22.1% | 93% of solver |
 
 The original report's main caveat was that a simple heuristic was nearly optimal. That gap is the thing
 to watch in this table.
