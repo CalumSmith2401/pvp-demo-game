@@ -11,8 +11,8 @@
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
-  <!-- background: a dim spotlight from above -->
-  <div class="pips" aria-hidden="true"><i></i><i></i><i></i></div>
+  <!-- background: Bones' junkyard, built by js/backdrop.js -->
+  <div id="yard" class="yard" aria-hidden="true"></div>
 
   <div id="app">
     <!-- MENU -->
@@ -20,6 +20,7 @@
       <div class="audio-switches">
         <button class="audio-btn music-btn" aria-label="Music"></button>
         <button class="audio-btn sound-btn" aria-label="Sound"></button>
+        <button class="audio-btn settings-btn" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></button>
       </div>
       <div class="hero"><img src="assets/mascot/bones-menu.png" alt="Bones the dog in dark glasses, chewing a toothpick" /></div>
       <i class="play-ring" aria-hidden="true"></i>
@@ -53,6 +54,7 @@
           <div id="facts"></div>
           <button class="audio-btn music-btn small" aria-label="Music"></button>
           <button class="audio-btn sound-btn small" aria-label="Sound"></button>
+          <button class="audio-btn settings-btn small" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/></svg></button>
           <button id="skip-btn" class="small hidden">Skip</button>
           <button id="quit-btn" class="small quiet">Leave</button>
         </div>
@@ -81,6 +83,16 @@
     <h2 id="tutorial-title">Tutorial</h2>
     <p>The guided tutorial isn't ready yet. How to play covers the rules in six short steps.</p>
     <form method="dialog"><button class="primary">Close</button></form>
+  </dialog>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <h2 id="settings-title">Settings</h2>
+    <div class="volumes">
+      <label class="volume"><span>Overall volume</span><output></output><input type="range" min="0" max="100" step="5" data-volume="master" /></label>
+      <label class="volume"><span>Music</span><output></output><input type="range" min="0" max="100" step="5" data-volume="music" /></label>
+      <label class="volume"><span>Game sounds</span><output></output><input type="range" min="0" max="100" step="5" data-volume="sfx" /></label>
+    </div>
+    <form method="dialog"><button class="primary">Done</button></form>
   </dialog>
 
   <!-- No build step: bare imports resolve to pinned CDN builds. -->
