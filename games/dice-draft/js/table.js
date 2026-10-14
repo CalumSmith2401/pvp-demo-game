@@ -199,6 +199,11 @@ export class Table {
       });
     });
     this.game.scene.add('table', TableScene, false);
+    // Fetch the artwork now (several megabytes of sprite sheets), while the player
+    // is still on the menu, so a match starts on a table that is already drawn.
+    await new Promise((resolve) => this.game.scene.add('art', ArtScene, true, { table: this, done: resolve }));
+    this.game.scene.remove('art');
+    if (!this.startToken) this.game.loop.sleep();
   }
 
   _listen() {
@@ -220,11 +225,15 @@ export class Table {
     this.scene = null;
     this.sceneReady = new Promise((r) => { this._sceneResolve = r; });
     const token = (this.startToken = {});
+    // Give the canvas its final shape straight away and keep it out of sight until
+    // the scene has drawn (see .loading in the CSS): otherwise the player watches
+    // it boot at a default size, change shape, and sit blank while art loads.
+    const L = layoutFor(opts.portrait, opts.table.zones.length, opts.variant.offers);
+    this.canvas.style.aspectRatio = `${L.W} / ${L.H}`;
+    this.canvas.dataset.layout = opts.portrait ? 'portrait' : 'landscape';
+    this.canvas.parentElement.classList.add('loading');
     this.ready.then(() => {
       if (this.failed || this.startToken !== token) return;
-      const L = layoutFor(opts.portrait, opts.table.zones.length, opts.variant.offers);
-      this.canvas.style.aspectRatio = `${L.W} / ${L.H}`;
-      this.canvas.dataset.layout = opts.portrait ? 'portrait' : 'landscape';
       this.game.scale.resize(L.W * this.dpr, L.H * this.dpr);
       this.game.loop.wake();
       this.game.scene.start('table', { table: this, opts, L }); // restarts it if already running
@@ -234,6 +243,7 @@ export class Table {
 
   _attach(scene) {
     this.scene = scene;
+    this.canvas.parentElement.classList.remove('loading');
     this._sceneResolve();
   }
 
@@ -262,6 +272,29 @@ export class Table {
   skip() { this.scene?.setSpeed(8); }
 }
 
+// Queue the pre-rendered sheets on a scene's loader, unless they are already in.
+function queueArt(scene) {
+  const { diceMeta: meta, bonesMeta: bones } = scene.sys.settings.data.table;
+  if (!meta || scene.textures.exists('roll')) return;
+  const sheet = (key, file, cell) => scene.load.spritesheet(key, `assets/${file}`, { frameWidth: cell, frameHeight: cell });
+  sheet('roll', meta.roll.file, meta.roll.cell);
+  scene.load.image('faces', `assets/${meta.faces.file}`);
+  if (meta.flip) sheet('flip', meta.flip.file, meta.flip.cell);
+  // The dealer: one pre-rendered sheet per clip (idle, throw, cheer, streak, wince, celebrate, sulk).
+  if (bones) for (const [name, clip] of Object.entries(bones.clips)) sheet(`bones-${name}`, `mascot/${clip.file}`, bones.cell);
+  if (meta.gold) { // the golden die: the same sheets, rendered in gold
+    sheet('roll-gold', meta.gold.roll, meta.roll.cell);
+    scene.load.image('faces-gold', `assets/${meta.gold.faces}`);
+    if (meta.flip) sheet('flip-gold', meta.gold.flip, meta.flip.cell);
+  }
+}
+
+// Loads the artwork at boot and draws nothing (see Table._boot).
+class ArtScene extends Phaser.Scene {
+  preload() { queueArt(this); }
+  create({ done }) { done(); }
+}
+
 // =====================================================================
 // TableScene: everything visual
 // =====================================================================
@@ -270,22 +303,7 @@ class TableScene extends Phaser.Scene {
     super({ key: 'table' });
   }
 
-  preload() {
-    const meta = this.sys.settings.data.table.diceMeta;
-    if (!meta || this.textures.exists('roll')) return;
-    const sheet = (key, file, cell) => this.load.spritesheet(key, `assets/${file}`, { frameWidth: cell, frameHeight: cell });
-    sheet('roll', meta.roll.file, meta.roll.cell);
-    this.load.image('faces', `assets/${meta.faces.file}`);
-    if (meta.flip) sheet('flip', meta.flip.file, meta.flip.cell);
-    // The dealer: one pre-rendered sheet per clip (idle, throw, cheer, streak, wince, celebrate, sulk).
-    const bones = this.sys.settings.data.table.bonesMeta;
-    if (bones) for (const [name, clip] of Object.entries(bones.clips)) sheet(`bones-${name}`, `mascot/${clip.file}`, bones.cell);
-    if (meta.gold) { // the golden die: the same sheets, rendered in gold
-      sheet('roll-gold', meta.gold.roll, meta.roll.cell);
-      this.load.image('faces-gold', `assets/${meta.gold.faces}`);
-      if (meta.flip) sheet('flip-gold', meta.gold.flip, meta.flip.cell);
-    }
-  }
+  preload() { queueArt(this); } // normally a no-op: ArtScene loaded it all at boot
 
   create({ table, opts, L }) {
     this.table = table;

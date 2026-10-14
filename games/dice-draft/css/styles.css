@@ -204,7 +204,10 @@ body.playing #app {
 }
 #play { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
 /* room around the canvas for its frame and hard shadow */
-.stage { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4px 4px 16px; }
+.stage { position: relative; flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; padding: 4px 4px 16px; }
+/* Until the table has drawn (js/table.js sets this), it holds its place unseen. */
+.stage.loading #table { opacity: 0; }
+.stage.loading::before { content: "Setting the table…"; position: absolute; inset: 0; display: grid; place-items: center; font-family: var(--display); font-size: 1.4rem; color: var(--soft); }
 
 /* Phaser writes inline pixel sizes onto the canvas; these override them so it
    scales to the stage. aspect-ratio is set from js/table.js for the active layout. */
@@ -216,6 +219,7 @@ body.playing #app {
   max-height: 100%;
   border-radius: 22px;
   box-shadow: 0 0 0 3px var(--edge), 0 12px 0 3px var(--shadow);
+  transition: opacity 0.18s;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
