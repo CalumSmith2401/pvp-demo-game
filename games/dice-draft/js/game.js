@@ -98,12 +98,6 @@ async function startMatch() {
   show('play');
   $('#skip-btn').classList.add('hidden');
   buildHud();
-  if (!table) {
-    table = new Table($('#table'));
-    table.onSelect = selectRoll;
-    table.onDie = tapDie;
-    table.onZone = tapZone;
-  }
   await table.start({ variant: state.variant, table: state.match.table, you: 'You', rival: state.bot.name, portrait: window.innerWidth < 620 });
   if (run !== state.run) return;
   $('#table').focus({ preventScroll: true });
@@ -470,3 +464,9 @@ renderBots();
 renderVariants();
 renderHowTo();
 show('menu');
+// The table boots and fetches its artwork behind the menu, so it is ready by the
+// time a match starts.
+table = new Table($('#table'));
+table.onSelect = selectRoll;
+table.onDie = tapDie;
+table.onZone = tapZone;
