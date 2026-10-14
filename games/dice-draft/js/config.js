@@ -30,24 +30,26 @@ function isRun(r) {
 // ---------- rule library ----------
 // Each rule scores a roll from the zone's `pay` params, and describes itself in
 // plain English. Rules are written for any dice count: "low/high" split around
-// the midpoint (3.5 per die), "set" means every die matches.
+// the midpoint (3.5 per die), "set" means every die matches. Unlike casino Sic Bo,
+// Small and Big pay on triples too: with no house to take an edge, the exception only
+// surprised players (it was never printed on the zone).
 const mid = (r) => 3.5 * r.length;
 const RULES = {
   low: {
-    score: (r, p) => (sum(r) < mid(r) && !allMatch(r) ? p.base + (Math.ceil(mid(r)) - 1 - sum(r)) * p.step : 0),
-    rule: (p, n) => `Total ${n + 1}–${Math.ceil(3.5 * n) - 1}, no ${setWord(n)}`,
+    score: (r, p) => (sum(r) < mid(r) ? p.base + (Math.ceil(mid(r)) - 1 - sum(r)) * p.step : 0),
+    rule: (p, n) => `Total ${n}–${Math.ceil(3.5 * n) - 1}`,
     hint: (p, n) => (p.base === p.step
       ? `${p.step} pts per pip under ${Math.ceil(3.5 * n)}`
       : `${p.base} pts, +${p.step} per pip under ${Math.ceil(3.5 * n) - 1}`),
-    max: (p, n) => p.base + (Math.ceil(3.5 * n) - 2 - n) * p.step,
+    max: (p, n) => p.base + (Math.ceil(3.5 * n) - 1 - n) * p.step,
   },
   high: {
-    score: (r, p) => (sum(r) > mid(r) && !allMatch(r) ? p.base + (sum(r) - Math.floor(mid(r)) - 1) * p.step : 0),
-    rule: (p, n) => `Total ${Math.floor(3.5 * n) + 1}–${6 * n - 1}, no ${setWord(n)}`,
+    score: (r, p) => (sum(r) > mid(r) ? p.base + (sum(r) - Math.floor(mid(r)) - 1) * p.step : 0),
+    rule: (p, n) => `Total ${Math.floor(3.5 * n) + 1}–${6 * n}`,
     hint: (p, n) => (p.base === p.step
       ? `${p.step} pts per pip over ${Math.floor(3.5 * n)}`
       : `${p.base} pts, +${p.step} per pip over ${Math.floor(3.5 * n) + 1}`),
-    max: (p, n) => p.base + (6 * n - 2 - Math.floor(3.5 * n)) * p.step,
+    max: (p, n) => p.base + (6 * n - 1 - Math.floor(3.5 * n)) * p.step,
   },
   set: {
     score: (r, p) => (allMatch(r) ? p.points : 0),
@@ -110,15 +112,14 @@ const RULES = {
     max: (p, n) => Math.round(6 * n * p.mult),
   },
 };
-const setWord = (n) => (n === 2 ? 'double' : n === 3 ? 'triple' : 'set');
 
 // How each rule is drawn on its zone: either the dice that show it (0 = any die)
 // or a short phrase, plus what it pays in as few characters as possible. The longer
 // `rule` / `hint` strings above are for How to play and the reports.
 const fill = (n, faces) => Array.from({ length: n }, (_, i) => faces[i] ?? 0);
 const PICTURES = {
-  low:      { picture: (p, n) => ({ chip: `Total ${n + 1} to ${Math.ceil(3.5 * n) - 1}` }), pays: (p) => `${p.step} a pip` },
-  high:     { picture: (p, n) => ({ chip: `Total ${Math.floor(3.5 * n) + 1} to ${6 * n - 1}` }), pays: (p) => `${p.step} a pip` },
+  low:      { picture: (p, n) => ({ chip: `Total ${n} to ${Math.ceil(3.5 * n) - 1}` }), pays: (p) => `${p.step} a pip` },
+  high:     { picture: (p, n) => ({ chip: `Total ${Math.floor(3.5 * n) + 1} to ${6 * n}` }), pays: (p) => `${p.step} a pip` },
   set:      { picture: (p, n) => ({ dice: fill(n, Array(n).fill(5)) }), pays: (p) => `${p.points}` },
   pair:     { picture: (p, n) => ({ dice: fill(n, [3, 3]) }), pays: (p) => `${p.points}` },
   run:      { picture: (p, n) => ({ dice: fill(n, [2, 3, 4, 5, 6]) }), pays: (p) => `${p.points}` },

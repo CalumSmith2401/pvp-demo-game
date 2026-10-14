@@ -1,0 +1,6 @@
+Dice and chip sounds: Casino Audio 1.1 by Kenney (www.kenney.nl), licensed CC0
+(http://creativecommons.org/publicdomain/zero/1.0/). Trimmed of leading silence,
+mixed to mono and converted from Ogg Vorbis to AAC (.m4a) so every browser,
+including older Safari on iPhone, can play them. The file names are Kenney's.
+
+The chimes, clock tick and win/lose stings are synthesised in js/sound.js.

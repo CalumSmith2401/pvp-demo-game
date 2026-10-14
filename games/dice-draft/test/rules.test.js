@@ -44,9 +44,11 @@ t('Big pays 2 per pip over 10, nothing from 10 down', () => {
   assert.strictEqual(pts('big', [3, 3, 4]), 0);
 });
 
-t('a triple scores nothing in Small or Big', () => {
-  assert.strictEqual(pts('small', [2, 2, 2]), 0);
-  assert.strictEqual(pts('big', [5, 5, 5]), 0);
+t('a triple counts in Small and Big like any other total', () => {
+  assert.strictEqual(pts('small', [2, 2, 2]), 10); // total 6
+  assert.strictEqual(pts('small', [1, 1, 1]), 16); // total 3, the most Small can pay
+  assert.strictEqual(pts('big', [5, 5, 5]), 10);   // total 15
+  assert.strictEqual(pts('big', [6, 6, 6]), 16);   // total 18, the most Big can pay
 });
 
 t('Triple, Double and Straight', () => {

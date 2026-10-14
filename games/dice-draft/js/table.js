@@ -10,6 +10,7 @@
 // clock (this.time / this.tweens), so skip() can fast-forward it by time scale.
 
 import * as Phaser from 'phaser';
+import { play } from './sound.js';
 
 // Must stay in sync with the palette in css/styles.css (WebGL can't read CSS vars).
 // felt = the table, line = printed linework, gold = you, rival = them.
@@ -401,6 +402,10 @@ class TableScene extends Phaser.Scene {
 
   _after(ms, fn) { return this.time.delayedCall(ms, fn); }
 
+  // A sound in step with the animation. Skipped while Skip fast-forwards the reveal,
+  // or every cue would land at once; `always` for the final result.
+  _sfx(name, opts = {}, always = false) { if (this.speed === 1 || always) play(name, opts); }
+
   setSpeed(s) {
     this.speed = s;
     this.time.timeScale = s;
@@ -471,8 +476,9 @@ class TableScene extends Phaser.Scene {
   _shake(ms, amount) { if (!this.calm) this.cameras.main.shake(ms, amount); }
 
   // Escalating payoff: 1 = a decent hit, 2 = straight-sized, 3 = triple-sized.
-  _celebrate(x, y, level, label) {
+  _celebrate(x, y, level, label, sound = true) {
     if (level <= 0) return;
+    if (sound) this._sfx('chime', { level });
     this._burst(x, y, 10 + level * 14, [C.gold, C.white, C.line], { speed: [80, 180 + level * 90] });
     this._ring(x, y, C.gold, { to: 1 + level * 0.5 });
     if (level >= 2) {
@@ -516,6 +522,7 @@ class TableScene extends Phaser.Scene {
       done: () => {
         chip.destroy();
         this._burst(to.x, to.y, 8, [color, C.white], { speed: [60, 180], life: 400, gravity: 0, size: 0.4 });
+        this._sfx('chips', { points });
         land();
       },
     });
@@ -614,6 +621,7 @@ class TableScene extends Phaser.Scene {
 
   rivalLocked() {
     this.rivalStatus.setText('Locked in').setColor(C.rival);
+    this._sfx('locked');
     this._punch(this.rivalStatus, 1.3, 120);
   }
 
@@ -812,6 +820,8 @@ class TableScene extends Phaser.Scene {
     this.showNext(null);
     const n = this.variant.dice;
     const thrown = !this.calm && !!this.meta;
+    if (thrown) this._sfx('shake', { dur: Math.max(0.2, release / 1000) });
+    else this._sfx('throw');
     const flight = thrown ? 880 : 0;
     this.groups.forEach((grp, gi) => {
       grp.offer = offers[gi];
@@ -889,6 +899,7 @@ class TableScene extends Phaser.Scene {
           .setAngle(0).setAlpha(Math.max(0.25, 1 - z / 150));
         while (hits < touchdowns.length && t >= touchdowns[hits]) {
           const power = [1, 0.5, 0.2][hits++];
+          if (hits === 1 && k === 0) this._sfx('throw'); // one clatter per roll, as its first die lands
           this._burst(x, y + die * 0.4, Math.round(6 * power) + 2, [C.line, C.white], { speed: [40, 60 + 110 * power], life: 320, gravity: 0, size: 0.34 });
           if (power === 1) this._ring(x, y + die * 0.3, C.line, { to: 1.1, ms: 320, alpha: 0.5 });
         }
@@ -937,6 +948,7 @@ class TableScene extends Phaser.Scene {
     const gold = grp.offer.gold === k;
     grp.values[k] = 7 - from;
     d.setTexture(this._face(7 - from, die, gold));
+    this._sfx('flip');
     const clip = this.meta?.flip;
     if (!clip || this.calm) { this._punch(d, 1.2, 90); return; }
     const roller = grp.rollers[k];
@@ -977,6 +989,7 @@ class TableScene extends Phaser.Scene {
   showNext(offers) {
     const s = this.nextSlot;
     s.label.setVisible(!!offers);
+    if (offers) this._sfx('peek');
     s.rows.forEach((dice, gi) => {
       if (!offers) { dice.forEach((d) => d.setVisible(false)); return; }
       this._showMinis(dice, offers[gi], s.size);
@@ -986,6 +999,7 @@ class TableScene extends Phaser.Scene {
 
   nudge(msg) {
     this._say(msg, true);
+    this._sfx('buzz');
     if (!this.calm) this.groups.forEach((grp) => { if (!grp.gone) grp.dice.forEach((d, k) => this.tweens.add({ targets: d, angle: 6, duration: 60, yoyo: true, delay: k * 30 })); });
     this.settleUntil = this.time.now + 250;
   }
@@ -994,6 +1008,7 @@ class TableScene extends Phaser.Scene {
   hold(gi) {
     this.live = false;
     this._say(`Held. Waiting for ${this.opts.rival}…`);
+    this._sfx('grab');
     const grp = this.groups[gi];
     const roll = { dice: grp.values.slice(), gold: grp.offer.gold };
     grp.frame.clear();
@@ -1036,7 +1051,12 @@ class TableScene extends Phaser.Scene {
       d.setVisible(false);
       this._arc(ghost, { x: cell.cx + to.x, y: cell.cy + to.y }, {
         ms: 280, delay: k * 40, lift: 40, size: cell.ds,
-        done: () => { ghost.destroy(); to.setTexture(this._face(roll.dice[k], cell.ds, roll.gold === k)).setVisible(true); if (!this.calm) this._pop(to, 1.5, 140); },
+        done: () => {
+          ghost.destroy();
+          to.setTexture(this._face(roll.dice[k], cell.ds, roll.gold === k)).setVisible(true);
+          if (!this.calm) this._pop(to, 1.5, 140);
+          if (k === 0) this._sfx('place');
+        },
       });
     });
     this.setHeld(null);
@@ -1072,6 +1092,7 @@ class TableScene extends Phaser.Scene {
           d.setVisible(false).setDepth(10);
           to.setTexture(this._face(current.dice[k], cell.ds, current.gold === k)).setVisible(true);
           if (!this.calm) this._pop(to, 1.5, 140);
+          if (k === 0) this._sfx('place');
           if (k === n - 1) landed.forEach((e, idx) => this._after(idx * 520, () => this._landed(this.cells[e.zone], e)));
         },
       });
@@ -1095,6 +1116,7 @@ class TableScene extends Phaser.Scene {
     cell.points.setText(String(points)).setScale(1).setColor(points ? C.gold : C.white).setAlpha(points ? 1 : 0.4);
     cell.tags.setText(this._tagsFor(e));
     if (points) this._pop(cell.points, 1.9); // a blank stays dim: no fanfare for a zero
+    else this._sfx('blank');
     if (!this.calm) {
       // the zone takes the weight: press down and spring back; a blank gets a head-shake
       this.tweens.add({ targets: cell.c, scale: 0.94, duration: 70, yoyo: true, ease: 'Sine.easeOut' });
@@ -1113,6 +1135,7 @@ class TableScene extends Phaser.Scene {
     if (e.sweep) {
       this._after(420, () => {
         this._callout(`Sweep +${e.sweep}`, 2);
+        this._sfx('sweep');
         this._shake(160, 0.003);
         this._react('celebrate');
         this._say(`Sweep! +${e.sweep}`, true);
@@ -1145,7 +1168,10 @@ class TableScene extends Phaser.Scene {
           return g;
         });
         const ring = this.add.graphics().setDepth(29);
-        this._after(330, () => ring.fillStyle(hex(C.rival), 1).fillRoundedRect(px - w / 2, ty - show / 2 - 4, w, show + 8, 8));
+        this._after(330, () => {
+          ring.fillStyle(hex(C.rival), 1).fillRoundedRect(px - w / 2, ty - show / 2 - 4, w, show + 8, 8);
+          this._sfx('lay');
+        });
         this._after(1250, () => {
           ring.destroy();
           ghosts.forEach((g) => this._arc(g, { x: cell.cx + cell.dot.x, y: cell.cy + cell.dot.y }, { ms: 200, lift: 0, size: 6, done: () => g.destroy() }));
@@ -1299,6 +1325,7 @@ class TableScene extends Phaser.Scene {
       }
       title.setText(isZone ? s.name : `Sweep, zones ${lit[0] + 1}–${lit[lit.length - 1] + 1}`).setColor(isZone && s.hot ? C.hot : C.white);
       this._pop(title, 1.4, 180);
+      this._sfx(isZone ? 'lay' : 'sweep', { vol: 0.35 });
 
       // both rolls slide in from their own side
       for (const [colm, entry] of sides) {
@@ -1357,7 +1384,7 @@ class TableScene extends Phaser.Scene {
           lead.setText(diff > 0 ? `You lead by ${diff}` : diff < 0 ? `${this.opts.rival} by ${-diff}` : 'Level');
           lead.setColor(diff > 0 ? C.gold : diff < 0 ? C.rival : C.white);
           // the lead changing hands is the moment worth shouting about
-          if (before * diff < 0) { this._punch(lead, 1.7, 160); this._shake(120, 0.003); this._say(diff > 0 ? 'You take the lead!' : `${this.opts.rival} takes the lead`, true); }
+          if (before * diff < 0) { this._punch(lead, 1.7, 160); this._shake(120, 0.003); this._sfx('lead', { mine: diff > 0 }); this._say(diff > 0 ? 'You take the lead!' : `${this.opts.rival} takes the lead`, true); }
         });
       });
       this._after(beat + 430 + 820, () => step(i + 1));
@@ -1379,6 +1406,7 @@ class TableScene extends Phaser.Scene {
     this._pop(banner, 2.6, 380);
     this._pop(sub, 1.2, 380);
     this._say(won ? 'Good boy!' : lost ? 'Next time' : 'Dead level', true);
+    this._sfx(won ? 'win' : lost ? 'lose' : 'draw', {}, true);
     this._react('idle');
     if (won) this._react('celebrate'); else if (lost) this._react('sulk');
     if (won || lost) this._punch(won ? this.youTotal : this.rivalTotal, 1.5, 200);
@@ -1387,7 +1415,7 @@ class TableScene extends Phaser.Scene {
         this._after(k * 160, () => this._burst(rnd(W * 0.15, W * 0.85), rnd(H * 0.3, H * 0.6), 46,
           [C.gold, C.white, C.rival, C.line], { tex: 'chip', size: 1.5, life: 1700, speed: [120, 460], gravity: 420 }));
       }
-      this._celebrate(cx, cy, 3);
+      this._celebrate(cx, cy, 3, null, false);
       // a victory wave runs through the zones
       if (!this.calm) {
         this.cells.forEach((c, k) => this.tweens.add({ targets: c.c, y: c.cy - 12, delay: 200 + k * 60, duration: 140, yoyo: true, ease: 'Sine.easeOut' }));

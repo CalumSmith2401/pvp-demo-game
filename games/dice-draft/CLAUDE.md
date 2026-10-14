@@ -48,8 +48,10 @@ js/solver.js      createSolver(): exact expected-points DP for one table
 js/bots.js        BOTS — five opponents, random → solver + Hold/Peek search
 js/table.js       Table (public API) + TableScene (Phaser): the whole play surface
 js/game.js        controller: DOM, HUD, turn timer, bot pacing, what a tap means
+js/sound.js       Web Audio: recorded dice/chip samples + synthesised chimes and stings, mute
 assets/           pre-rendered dice sheets (white and gold): roll, faces, flip; dice-roll.json
 assets/mascot/    Bones the dealer: one sprite sheet per clip, described by bones.json
+assets/sound/     dice and chip samples (Kenney Casino Audio, CC0) as AAC .m4a; see CREDITS.txt
 design/mascots/   mascot concept art from the render pipeline; drafts, not loaded by the game
 sim/play.js       headless match runner (bots through match.js), solver cache per table
 sim/balance.js    balance simulator → BALANCE.md
@@ -198,6 +200,29 @@ studded collar.
   their `celebrate` rank in config, other zones by the size of the number. The full
   yellow flash is for Triple and a match win only.
 - `prefers-reduced-motion` skips the tumble, shake and particles on the table.
+
+## Sound
+
+`js/sound.js` exposes `play(cue, opts)`; the cues are named in its `CUES` table.
+Physical sounds are recorded samples (dice shaken, thrown, set down; chips for points),
+trimmed of leading silence and converted to AAC so older iPhone Safari can play them
+(it has no Ogg). Payoffs and warnings are synthesised, so they cost no download.
+
+- **The table plays the sounds of its own choreography** through `_sfx()`, at the
+  moment the animation shows it (a roll's clatter when its first die lands, chips
+  when "+N" reaches the total). `_sfx` is silent while Skip fast-forwards the reveal;
+  only the final win/lose sting plays through. Taps that the controller decides
+  (picking a roll, arming Double or Flip, the clock tick in its last
+  `CLOCK_WARNING_SECONDS`) are played from `game.js`.
+- Audio stays locked until the first tap (browser rule); `sound.js` resumes it on
+  the first pointer or key event. On iOS it asks for an 'ambient' session so the
+  silent switch mutes the game and the player's music keeps playing.
+- Mute is per device (localStorage), shown by every `.sound-btn` (menu corner, the
+  row under the table). Nothing in `sound.js` may throw: no Web Audio, a failed
+  fetch or a locked context just means silence.
+- Cue levels were balanced by rendering each one offline and measuring it: the
+  main events sit around −30 to −38 dB RMS, the clock tick lower. Keep new cues in
+  that band.
 
 ## Gotchas
 
