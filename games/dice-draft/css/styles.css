@@ -103,7 +103,7 @@ button.quiet:hover { color: var(--white); text-decoration: underline; }
   50%      { transform: translateY(-9px) rotate(calc(var(--tilt) + 3deg)); }
 }
 #title {
-  font-size: clamp(3rem, min(23vw, 12.5dvh), 5.6rem);
+  font-size: clamp(2.4rem, min(16.5vw, 10.5dvh), 4.6rem);
   line-height: 0.88;
   letter-spacing: -1px;
   text-shadow: 0 6px 0 var(--shadow);

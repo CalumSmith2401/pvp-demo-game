@@ -3,7 +3,7 @@
 // the named variants. Rebalancing or rotating a season is a data change in this
 // file — nothing else hardcodes a point value.
 
-export const GAME_NAME = 'Loaded Dice'; // the only place the code spells it out
+export const GAME_NAME = 'Bad to the Bone'; // the only place the code spells it out
 
 // One clock for the whole match, per player. It only runs while that player has a
 // decision to make (dice on the table, nothing locked in), so animations and the

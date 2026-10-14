@@ -442,7 +442,10 @@ function leaveMatch(screen) {
 
 // ---------- wiring ----------
 document.title = GAME_NAME;
-$('#title').innerHTML = GAME_NAME.split(' ').join('<br>'); // one word per line on the menu
+// The menu title sits on two balanced lines: "Bad to" / "the Bone".
+const words = GAME_NAME.split(' ');
+const half = Math.ceil(words.length / 2);
+$('#title').innerHTML = words.length > 1 ? `${words.slice(0, half).join(' ')}<br>${words.slice(half).join(' ')}` : GAME_NAME;
 $('#start-btn').onclick = startMatch;
 $('#rematch-btn').onclick = startMatch;
 $('#play-btn').onclick = () => show('setup');

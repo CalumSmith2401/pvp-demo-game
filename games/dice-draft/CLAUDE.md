@@ -5,7 +5,7 @@ the launcher live in the root `CLAUDE.md`.
 
 ## What this is
 
-**Loaded Dice** (renamed from "Dice Draft"; the folder and URL are still `dice-draft`) — a 2-player dice placement game with a Sic Bo feel,
+**Bad to the Bone** (earlier "Dice Draft", then "Loaded Dice"; the folder and URL are still `dice-draft`). "Bones" is slang for dice, and Bones the dog is the dealer — a 2-player dice placement game with a Sic Bo feel,
 currently played against a bot. Each turn both players are shown the *same* rolls
 and each privately places one into one of their own 8 zones. Placement is final.
 When the table is full, the zones are scored one by one and the higher total wins.
