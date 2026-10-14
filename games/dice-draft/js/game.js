@@ -9,7 +9,7 @@ import { createSolver } from './solver.js';
 import { BOTS, getBot } from './bots.js';
 import { mulberry32 } from './rng.js';
 import { Table } from './table.js';
-import { loadSounds, play, isMuted, setMuted } from './sound.js';
+import { loadSounds, play, isMuted, setMuted, isMusicOn, setMusic } from './sound.js';
 
 const ME = 'a';
 const RIVAL = 'b';
@@ -447,17 +447,25 @@ $('#tutorial-btn').onclick = () => $('#tutorial-dialog').showModal(); // placeho
 $('#menu-btn').onclick = () => leaveMatch('setup');
 $('#quit-btn').onclick = () => leaveMatch('menu');
 $('#skip-btn').onclick = () => table.skip();
-// The sound switch appears on the menu and under the table; both show the same state.
+// The music and sound switches appear on the menu and under the table; each pair
+// shows the same state. Sound off silences everything, music included.
 const SPEAKER = '<path d="M4 9h4l5-4v14l-5-4H4z"/>';
+const NOTE = '<path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/>';
 function renderSound() {
-  const on = !isMuted();
+  const sound = !isMuted(), music = isMusicOn();
   for (const btn of document.querySelectorAll('.sound-btn')) {
-    btn.setAttribute('aria-pressed', String(on));
-    btn.title = on ? 'Sound on' : 'Sound off';
-    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}${on ? '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>' : '<path d="M17 9.5l5 5M22 9.5l-5 5"/>'}</svg>`;
+    btn.setAttribute('aria-pressed', String(sound));
+    btn.title = sound ? 'Sound on' : 'Sound off';
+    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${SPEAKER}${sound ? '<path d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"/>' : '<path d="M17 9.5l5 5M22 9.5l-5 5"/>'}</svg>`;
+  }
+  for (const btn of document.querySelectorAll('.music-btn')) {
+    btn.setAttribute('aria-pressed', String(music));
+    btn.title = music ? 'Music on' : 'Music off';
+    btn.innerHTML = `<svg viewBox="0 0 24 24" aria-hidden="true">${NOTE}${music ? '' : '<path d="M3 3l18 18"/>'}</svg>`;
   }
 }
 for (const btn of document.querySelectorAll('.sound-btn')) btn.onclick = () => { setMuted(!isMuted()); renderSound(); };
+for (const btn of document.querySelectorAll('.music-btn')) btn.onclick = () => { setMusic(!isMusicOn()); renderSound(); };
 renderSound();
 const KEYS = { f: 'flip', d: 'double', h: 'hold', p: 'peek' };
 document.addEventListener('keydown', (e) => {

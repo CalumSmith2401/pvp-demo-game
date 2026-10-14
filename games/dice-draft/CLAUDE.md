@@ -48,7 +48,7 @@ js/solver.js      createSolver(): exact expected-points DP for one table
 js/bots.js        BOTS — five opponents, random → solver + Hold/Peek search
 js/table.js       Table (public API) + TableScene (Phaser): the whole play surface
 js/game.js        controller: DOM, HUD, turn timer, bot pacing, what a tap means
-js/sound.js       Web Audio: recorded dice/chip samples + synthesised chimes and stings, mute
+js/sound.js       Web Audio: recorded dice/chip samples, synthesised chimes and stings, the background tune, switches
 assets/           pre-rendered dice sheets (white and gold): roll, faces, flip; dice-roll.json
 assets/mascot/    Bones the dealer: one sprite sheet per clip, described by bones.json
 assets/sound/     dice and chip samples (Kenney Casino Audio, CC0) as AAC .m4a; see CREDITS.txt
@@ -217,8 +217,15 @@ trimmed of leading silence and converted to AAC so older iPhone Safari can play 
 - Audio stays locked until the first tap (browser rule); `sound.js` resumes it on
   the first pointer or key event. On iOS it asks for an 'ambient' session so the
   silent switch mutes the game and the player's music keeps playing.
-- Mute is per device (localStorage), shown by every `.sound-btn` (menu corner, the
-  row under the table). Nothing in `sound.js` may throw: no Web Audio, a failed
+- **The background tune** is an original 12-bar blues shuffle in C at 92 bpm (boogie
+  bass, brushed kit, electric-piano offbeats, a lick every other chorus), synthesised
+  and scheduled a quarter-second ahead on the audio clock. It is in C so the C-major
+  chimes sit on it, and it ducks under the win/lose stings. It must not quote the
+  George Thorogood song the game is named after. Its level (`MUSIC_LEVEL`) puts it
+  near −40 dB RMS, under the effects. It stops in a background tab.
+- Sound (everything) and music (the tune only) are separate switches, each per device
+  (localStorage), shown by every `.sound-btn` / `.music-btn` (menu corner, the row
+  under the table). Nothing in `sound.js` may throw: no Web Audio, a failed
   fetch or a locked context just means silence.
 - Cue levels were balanced by rendering each one offline and measuring it: the
   main events sit around −30 to −38 dB RMS, the clock tick lower. Keep new cues in
