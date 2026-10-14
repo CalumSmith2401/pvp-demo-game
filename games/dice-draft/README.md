@@ -1,4 +1,4 @@
-# Loaded Dice
+# Bad to the Bone
 
 You and a rival are dealt the same eight rolls of three dice, one at a time. Place
 each roll in one of your eight bet zones. It stays there. When the table is full,
