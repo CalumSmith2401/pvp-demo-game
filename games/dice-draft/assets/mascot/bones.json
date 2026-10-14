@@ -1,4 +1,5 @@
 {
+  "variant": "shades",
   "cell": 384,
   "fps": 24,
   "frameOrder": "row-major",
@@ -68,13 +69,13 @@
     63,
     135,
     257,
-    219
+    223
   ],
   "idleHeadBox": [
     83,
     135,
     223,
-    170
+    179
   ],
   "pivot": [
     192.0,
@@ -82,8 +83,8 @@
   ],
   "notes": {
     "boxes": "x, y, width, height in cell pixels, taken from idle frame 0",
-    "idleHeadBox": "head, ears and tuft only (no collar, tag or paws)",
-    "pivot": "centre of the head in the cell; the same point in every frame of every clip",
-    "matchStills": "to match bones-head-*.png drawn in a box of B px, draw the cell at 1.0698 * B with this pivot where the still's point (0.5 * B, 0.5186 * B) was"
+    "idleHeadBox": "head, ears, tuft, glasses and toothpick (no collar, tag or paws)",
+    "pivot": "centre of the head in the cell; the same point in every frame of every clip, and the same as the first Bones sheets",
+    "matchStills": "to match bones-bad-shades.png drawn in a box of B px, draw the cell at 1.0698 * B with this pivot where the still's point (0.5 * B, 0.5186 * B) was"
   }
 }

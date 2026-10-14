@@ -1,0 +1,90 @@
+{
+  "variant": "shades",
+  "cell": 384,
+  "fps": 24,
+  "frameOrder": "row-major",
+  "format": "WebP, lossy q92, lossless straight alpha",
+  "clips": {
+    "idle": {
+      "file": "bones-idle.webp",
+      "columns": 10,
+      "rows": 5,
+      "frames": 48,
+      "durationMs": 2000,
+      "loop": true
+    },
+    "throw": {
+      "file": "bones-throw.webp",
+      "columns": 10,
+      "rows": 2,
+      "frames": 16,
+      "durationMs": 667,
+      "loop": false,
+      "releaseFrame": 9
+    },
+    "cheer": {
+      "file": "bones-cheer.webp",
+      "columns": 10,
+      "rows": 3,
+      "frames": 22,
+      "durationMs": 917,
+      "loop": false
+    },
+    "streak": {
+      "file": "bones-streak.webp",
+      "columns": 10,
+      "rows": 2,
+      "frames": 16,
+      "durationMs": 667,
+      "loop": true
+    },
+    "wince": {
+      "file": "bones-wince.webp",
+      "columns": 10,
+      "rows": 3,
+      "frames": 22,
+      "durationMs": 917,
+      "loop": false
+    },
+    "celebrate": {
+      "file": "bones-celebrate.webp",
+      "columns": 10,
+      "rows": 4,
+      "frames": 36,
+      "durationMs": 1500,
+      "loop": false
+    },
+    "sulk": {
+      "file": "bones-sulk.webp",
+      "columns": 10,
+      "rows": 3,
+      "frames": 30,
+      "durationMs": 1250,
+      "loop": false,
+      "holds": true,
+      "returnsToIdle": false
+    }
+  },
+  "idleBox": [
+    63,
+    135,
+    257,
+    223
+  ],
+  "idleHeadBox": [
+    83,
+    135,
+    223,
+    179
+  ],
+  "pivot": [
+    192.0,
+    229.6
+  ],
+  "notes": {
+    "boxes": "x, y, width, height in cell pixels, taken from idle frame 0",
+    "idleHeadBox": "head, ears, tuft, glasses and toothpick (no collar, tag or paws)",
+    "pivot": "centre of the head in the cell; the same point in every frame of every clip, and the same as the first Bones sheets",
+    "matchStills": "to match bones-bad-shades.png drawn in a box of B px, draw the cell at 1.0698 * B with this pivot where the still's point (0.5 * B, 0.5186 * B) was"
+  }
+}
