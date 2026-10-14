@@ -17,7 +17,10 @@
   <div id="app">
     <!-- MENU -->
     <section id="menu" class="screen">
-      <button class="sound-btn" aria-label="Sound"></button>
+      <div class="audio-switches">
+        <button class="audio-btn music-btn" aria-label="Music"></button>
+        <button class="audio-btn sound-btn" aria-label="Sound"></button>
+      </div>
       <div class="hero"><img src="assets/mascot/bones-menu.png" alt="Bones the dog in dark glasses, chewing a toothpick" /></div>
       <i class="play-ring" aria-hidden="true"></i>
       <button id="play-btn" class="play-tag">Play</button>
@@ -48,7 +51,8 @@
         <div id="powers"></div>
         <div class="hud-row">
           <div id="facts"></div>
-          <button class="sound-btn small" aria-label="Sound"></button>
+          <button class="audio-btn music-btn small" aria-label="Music"></button>
+          <button class="audio-btn sound-btn small" aria-label="Sound"></button>
           <button id="skip-btn" class="small hidden">Skip</button>
           <button id="quit-btn" class="small quiet">Leave</button>
         </div>
