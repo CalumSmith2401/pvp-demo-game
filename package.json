@@ -1,11 +1,13 @@
 {
-  "name": "spell-draft-duel",
+  "name": "pvp-demo-games",
   "version": "1.0.0",
-  "description": "A single-player-vs-AI spell drafting duel. Shared card sequence, irrevocable placement, turn-based combat.",
+  "private": true,
+  "description": "A collection of zero-dependency browser games. Each lives in games/<id>/.",
   "type": "module",
   "scripts": {
-    "start": "node serve.js",
-    "test": "node test/combat.test.js"
+    "start": "node scripts/play.js",
+    "games": "node scripts/play.js --list",
+    "test": "node scripts/test.js"
   },
   "license": "MIT"
 }

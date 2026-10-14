@@ -346,9 +346,10 @@ button.primary:hover {
 /* ---- combat ---- */
 #arena {
   display: block;
-  width: 100%;
+  /* !important beats the inline pixel size Phaser's ScaleManager writes */
+  width: 100% !important;
   max-width: 720px;
-  height: auto;
+  height: auto !important;
   margin: 0 auto;
   border: 1px solid var(--border);
   box-shadow:

@@ -1,0 +1,49 @@
+{
+  "roll": {
+    "file": "dice-roll.webp",
+    "cell": 192,
+    "columns": 14,
+    "rows": 12,
+    "framesPerClip": 28,
+    "clips": 6,
+    "faceWidth": 112,
+    "durationMs": 900,
+    "frameRate": 31.11,
+    "frameIndex": "(value - 1) * framesPerClip + frame, row-major",
+    "lastFrameIsRest": true
+  },
+  "faces": {
+    "file": "dice-faces.webp",
+    "cell": 272,
+    "columns": 6,
+    "rows": 1,
+    "faceWidth": 256,
+    "frameIndex": "value - 1"
+  },
+  "face": {
+    "pipOffset": 0.255,
+    "pipRadius": 0.095,
+    "onePipRadius": 0.17,
+    "cornerRadius": 0.2
+  },
+  "flip": {
+    "file": "dice-flip.webp",
+    "cell": 192,
+    "columns": 14,
+    "rows": 6,
+    "framesPerClip": 14,
+    "clips": 6,
+    "faceWidth": 112,
+    "durationMs": 350,
+    "frameRate": 40.0,
+    "frameIndex": "(startValue - 1) * framesPerClip + frame, row-major",
+    "endValue": "7 - startValue",
+    "firstFrameIsRest": true,
+    "lastFrameIsRest": true
+  },
+  "gold": {
+    "roll": "dice-roll-gold.webp",
+    "faces": "dice-faces-gold.webp",
+    "flip": "dice-flip-gold.webp"
+  }
+}

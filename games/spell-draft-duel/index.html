@@ -89,6 +89,14 @@
     </div>
   </div>
 
+  <!-- No build step: bare imports resolve to pinned CDN builds. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "phaser": "https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.esm.min.js"
+      }
+    }
+  </script>
   <script type="module" src="js/game.js"></script>
 </body>
 </html>

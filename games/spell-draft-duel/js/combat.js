@@ -97,7 +97,7 @@ export function resolveCombat(buildA, buildB, labels = { a: 'You', b: 'Opponent'
     const S = (x) => Math.max(0, Math.floor(x * sf));
     const pre = opts.mirrored ? 'Mirror: ' : '';
     const sil = opts.silenced ? ' (silenced)' : '';
-    const base = { actor: ck, spellId: spell.id, icon: spell.icon, value: spell.value, mirrored: opts.mirrored };
+    const base = { actor: ck, spellId: spell.id, name: spell.name, icon: spell.icon, value: spell.value, mirrored: opts.mirrored };
 
     switch (spell.type) {
       case 'damage': {
@@ -185,7 +185,7 @@ export function resolveCombat(buildA, buildB, labels = { a: 'You', b: 'Opponent'
       if (!last || last.id === 'mirror') {
         caster.haste = false;
         caster.silenced = false;
-        push({ actor: ck, kind: 'control', move: 'self', spellId: 'mirror', icon: spell.icon,
+        push({ actor: ck, kind: 'control', move: 'self', spellId: 'mirror', name: spell.name, icon: spell.icon,
           note: 'Fizzle', text: `${cl} cast Mirror — but there was nothing to copy.` });
         return;
       }

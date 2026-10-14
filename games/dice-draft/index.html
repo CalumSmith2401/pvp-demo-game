@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#1F4BFF" />
+  <title>Dice game</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;800&family=Barlow+Semi+Condensed:wght@600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- background: oversized pips drifting off the edges -->
+  <div class="pips" aria-hidden="true"><i></i><i></i><i></i></div>
+
+  <div id="app">
+    <!-- MENU -->
+    <section id="menu" class="screen">
+      <div class="hero-dice" aria-hidden="true">
+        <svg class="die die-six" viewBox="0 0 100 100">
+          <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFFFFF"/>
+          <g fill="#14204D"><circle cx="27" cy="27" r="9"/><circle cx="73" cy="27" r="9"/><circle cx="27" cy="50" r="9"/><circle cx="73" cy="50" r="9"/><circle cx="27" cy="73" r="9"/><circle cx="73" cy="73" r="9"/></g>
+        </svg>
+        <svg class="die die-one" viewBox="0 0 100 100">
+          <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFFFFF"/>
+          <circle cx="50" cy="50" r="16" fill="#FF4D4D"/>
+        </svg>
+        <svg class="die die-five" viewBox="0 0 100 100">
+          <rect x="2" y="2" width="96" height="96" rx="22" fill="#FFD23F"/>
+          <g fill="#14204D"><circle cx="27" cy="27" r="9"/><circle cx="73" cy="27" r="9"/><circle cx="50" cy="50" r="9"/><circle cx="27" cy="73" r="9"/><circle cx="73" cy="73" r="9"/></g>
+        </svg>
+      </div>
+      <h1 id="title"></h1>
+      <p class="tagline">Same eight rolls. Your call where they go.</p>
+      <div class="menu-actions">
+        <button id="play-btn" class="primary big">Play</button>
+        <div class="pair">
+          <button id="howto-btn" class="outline">How to play</button>
+          <button id="tutorial-btn" class="outline">Tutorial</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETUP -->
+    <section id="setup" class="screen hidden">
+      <button id="back-btn" class="quiet back">Back</button>
+      <h2>Pick a rival</h2>
+      <div id="bot-list" class="options"></div>
+      <h2>Pick a table</h2>
+      <div id="variant-list" class="options"></div>
+      <div class="controls">
+        <button id="start-btn" class="primary">Start match</button>
+      </div>
+    </section>
+
+    <!-- PLAY -->
+    <section id="play" class="screen hidden">
+      <div class="stage"><canvas id="table" width="720" height="640" tabindex="0" aria-label="Dice table"></canvas></div>
+      <p id="live" class="sr-only" aria-live="polite"></p>
+      <div id="hud">
+        <div id="powers"></div>
+        <div class="hud-row">
+          <div id="facts"></div>
+          <button id="skip-btn" class="small hidden">Skip</button>
+          <button id="quit-btn" class="small quiet">Leave</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- END -->
+    <section id="end" class="screen hidden">
+      <div id="result" class="result"></div>
+      <div id="log" class="panel"></div>
+      <p id="audit" class="audit"></p>
+      <div class="controls">
+        <button id="rematch-btn" class="primary">Play again</button>
+        <button id="menu-btn" class="outline">Change rival or table</button>
+      </div>
+    </section>
+  </div>
+
+  <dialog id="howto-dialog" aria-labelledby="howto-title">
+    <h2 id="howto-title">How to play</h2>
+    <div id="howto-body"></div>
+    <form method="dialog"><button class="primary">Got it</button></form>
+  </dialog>
+
+  <dialog id="tutorial-dialog" aria-labelledby="tutorial-title">
+    <h2 id="tutorial-title">Tutorial</h2>
+    <p>The guided tutorial isn't ready yet. How to play covers the rules in six short steps.</p>
+    <form method="dialog"><button class="primary">Close</button></form>
+  </dialog>
+
+  <!-- No build step: bare imports resolve to pinned CDN builds. -->
+  <script type="importmap">
+    {
+      "imports": {
+        "phaser": "https://cdn.jsdelivr.net/npm/phaser@3.90.0/dist/phaser.esm.min.js"
+      }
+    }
+  </script>
+  <script type="module" src="js/game.js"></script>
+</body>
+</html>
